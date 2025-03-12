@@ -1,0 +1,75 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Website Monitoring Report</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #ddd; padding: 8px; }
+        th { background-color: #f2f2f2; }
+        .up { color: green; }
+        .down { color: red; }
+    </style>
+</head>
+<body>
+    <h2>Website Monitoring Report</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Domain</th>
+                <th>Total Checks</th>
+                <th>Successful Checks</th>
+                <th>Failed Checks</th>
+                <th>Average Response Time (s)</th>
+                <th>Uptime (%)</th>
+                <th>Last Checked</th>
+                <th>Current Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            
+            <tr>
+                <td>another-site.com</td>
+                <td>4</td>
+                <td>4</td>
+                <td>0</td>
+                <td>1.90</td>
+                <td>100.00%</td>
+                <td>2025-03-12 13:58:16</td>
+                <td class="up">
+                    UP
+                </td>
+            </tr>
+            
+            <tr>
+                <td>example.com</td>
+                <td>4</td>
+                <td>4</td>
+                <td>0</td>
+                <td>0.22</td>
+                <td>100.00%</td>
+                <td>2025-03-12 13:58:13</td>
+                <td class="up">
+                    UP
+                </td>
+            </tr>
+            
+            <tr>
+                <td>x.com</td>
+                <td>4</td>
+                <td>0</td>
+                <td>4</td>
+                <td>0.08</td>
+                <td>0.00%</td>
+                <td>2025-03-12 13:58:16</td>
+                <td class="down">
+                    DOWN
+                </td>
+            </tr>
+            
+        </tbody>
+    </table>
+</body>
+</html>
