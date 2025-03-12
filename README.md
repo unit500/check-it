@@ -11,3 +11,4 @@ _________   ___ _______________________  ____  __.         .______________
 
 Serverless free github repo to check whthewr sites are up or not.
 Have fun.
+https://unit500.github.io/check-it/
