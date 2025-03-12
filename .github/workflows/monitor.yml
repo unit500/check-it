@@ -1,0 +1,34 @@
+name: Monitor Sites
+
+on:
+  schedule:
+    - cron: '*/2 * * * *' # every 2 minutes
+  workflow_dispatch:
+
+jobs:
+  monitor-sites:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install requests
+
+      - name: Run monitoring script
+        run: |
+          python monitor.py
+
+      # Commit and push changes if database updated
+      - name: Commit changes
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add data.db
+          git commit -m "Update monitoring data" || echo "No changes to commit"
+          git push
