@@ -1,58 +1,22 @@
-name: Monitor Sites and Generate Report
-
-on:
-  schedule:
-    - cron: '*/5 * * * *'
-  workflow_dispatch:
-
-jobs:
-  monitor:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.12'
-
-      - name: Install Dependencies
-        run: |
-          pip install requests pandas jinja2
-
-      - name: Run Monitoring Script
-        working-directory: scripts
-        run: python monitor.py
-
-      - name: Generate HTML Report
-        working-directory: scripts
-        run: python generate_html_report.py
-
-      - name: Commit and Push DB & Report to main
-        run: |
-          git config user.name github-actions
-          git config user.email github-actions@github.com
-          git pull origin main
-          git add data/data.db report.html
-          git commit -m "Update site data and HTML report" || echo "No changes detected"
-          git push origin main
-
-      - name: Deploy Report to Pages Branch
-        run: |
-          git config user.name github-actions
-          git config user.email github-actions@github.com
-          # Check if the remote 'pages' branch exists; if so, check it out, otherwise create an orphan branch
-          if git ls-remote --exit-code origin pages; then
-            echo "Pages branch exists. Checking out."
-            git checkout pages
-            git pull origin pages
-          else
-            echo "Pages branch does not exist. Creating orphan branch."
-            git checkout --orphan pages
-          fi
-          git rm -rf . || true
-          mv report.html index.html
-          git add index.html
-          git commit -m "Deploy updated report to GitHub Pages" || echo "No changes to deploy"
-          git push origin pages --force
+- name: Deploy Report to Pages Branch
+  run: |
+    git config user.name github-actions
+    git config user.email github-actions@github.com
+    # Save the generated report to a temporary location
+    cp report.html /tmp/report.html
+    # Check if the remote 'pages' branch exists; if so, check it out, otherwise create an orphan branch
+    if git ls-remote --exit-code origin pages; then
+      echo "Pages branch exists. Checking out."
+      git checkout pages
+      git pull origin pages
+    else
+      echo "Pages branch does not exist. Creating orphan branch."
+      git checkout --orphan pages
+    fi
+    # Remove all files in the current branch
+    git rm -rf . || true
+    # Restore the report file and rename it to index.html
+    cp /tmp/report.html index.html
+    git add index.html
+    git commit -m "Deploy updated report to GitHub Pages" || echo "No changes to deploy"
+    git push origin pages --force
