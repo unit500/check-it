@@ -7,8 +7,10 @@
     <style>
         body { font-family: Arial, sans-serif; }
         table { width: 100%; border-collapse: collapse; }
-        th, td { border: 1px solid #ddd; padding: 8px; }
+        th, td { border: 1px solid #ddd; padding: 8px; vertical-align: top; }
         th { background-color: #f2f2f2; }
+        details { cursor: pointer; }
+        pre { background-color: #f9f9f9; padding: 8px; white-space: pre-wrap; word-wrap: break-word; }
         .up { color: green; }
         .down { color: red; }
     </style>
@@ -32,40 +34,55 @@
             
             <tr>
                 <td>another-site.com</td>
-                <td>13</td>
-                <td>13</td>
+                <td>1</td>
+                <td>1</td>
                 <td>0</td>
-                <td>2.00</td>
+                <td>2.24</td>
                 <td>100.00%</td>
-                <td>2025-03-12 14:57:51</td>
-                <td class="up">
-                    UP
+                <td>2025-03-12 15:11:55</td>
+                <td>
+                    <details>
+                        <summary class="up">
+                            UP
+                        </summary>
+                        <pre>None</pre>
+                    </details>
                 </td>
             </tr>
             
             <tr>
                 <td>example.com</td>
-                <td>13</td>
-                <td>13</td>
+                <td>1</td>
+                <td>1</td>
                 <td>0</td>
-                <td>0.18</td>
+                <td>0.17</td>
                 <td>100.00%</td>
-                <td>2025-03-12 14:57:49</td>
-                <td class="up">
-                    UP
+                <td>2025-03-12 15:11:53</td>
+                <td>
+                    <details>
+                        <summary class="up">
+                            UP
+                        </summary>
+                        <pre>None</pre>
+                    </details>
                 </td>
             </tr>
             
             <tr>
                 <td>x.com</td>
-                <td>13</td>
+                <td>1</td>
                 <td>0</td>
-                <td>13</td>
-                <td>0.10</td>
+                <td>1</td>
+                <td>0.08</td>
                 <td>0.00%</td>
-                <td>2025-03-12 14:57:51</td>
-                <td class="down">
-                    DOWN
+                <td>2025-03-12 15:11:55</td>
+                <td>
+                    <details>
+                        <summary class="down">
+                            DOWN
+                        </summary>
+                        <pre>None</pre>
+                    </details>
                 </td>
             </tr>
             
