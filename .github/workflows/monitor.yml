@@ -48,10 +48,13 @@ jobs:
           cp report.html /tmp/report.html
           # Stash any local changes to avoid merge conflicts
           git stash --include-untracked || echo "Nothing to stash"
-          # If the remote 'pages' branch exists, create/update local 'pages' branch tracking it
+          # Attempt to check out the remote pages branch; if it fails, create an orphan branch.
           if git ls-remote --exit-code origin pages; then
-            echo "Pages branch exists. Checking out."
-            git checkout -B pages origin/pages
+            echo "Pages branch exists. Attempting to check it out."
+            if ! git checkout -B pages origin/pages; then
+              echo "Failed to check out origin/pages; creating orphan branch."
+              git checkout --orphan pages
+            fi
           else
             echo "Pages branch does not exist. Creating orphan branch."
             git checkout --orphan pages
