@@ -31,7 +31,10 @@ def insert_check_for_site(conn, url):
 
     start_time = datetime.now()
     try:
-        response = requests.get(url, timeout=10)
+        headers = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.93 Safari/537.36"
+}
+        response = requests.get(url, headers=headers, timeout=10)
         response_time = (datetime.now() - start_time).total_seconds()
         status = response.status_code
     except requests.RequestException:
