@@ -40,11 +40,12 @@ jobs:
 
       - name: Deploy Report to Pages Branch
         run: |
-          git checkout --orphan pages
-          git reset --hard
           git config user.name github-actions
           git config user.email github-actions@github.com
+          git fetch origin pages || git checkout --orphan pages
+          git checkout pages
+          git rm -rf . || true
           mv report.html index.html
           git add index.html
-          git commit -m "Deploy updated report to GitHub Pages"
+          git commit -m "Deploy updated report to GitHub Pages" || echo "No changes"
           git push origin pages --force
