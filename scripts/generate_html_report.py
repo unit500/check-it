@@ -62,12 +62,13 @@ def generate_report():
     summary = []
     for host, group in df.groupby('host'):
         total = len(group)
-        up = group[group.status == 200].shape[0]
+        # Consider any status code less than 400 as a success (UP)
+        up = group[group.status < 400].shape[0]
         down = total - up
         avg_response = group['response_time'].dropna().mean() or 0
         uptime_percent = (up / total) * 100 if total else 0
         last_checked = group['checked_at'].iloc[-1]
-        current_status = group['status'].iloc[-1] == 200
+        current_status = group['status'].iloc[-1] < 400
         summary.append({
             'host': host,
             'total': total,
