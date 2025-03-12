@@ -1,4 +1,4 @@
-name: Monitor Sites
+name: Monitor Sites and Generate Report
 
 on:
   schedule:
@@ -18,17 +18,33 @@ jobs:
           python-version: '3.12'
 
       - name: Install Dependencies
-        run: pip install requests
+        run: |
+          pip install requests pandas jinja2
 
       - name: Run Monitoring Script
         working-directory: scripts
         run: python monitor.py
 
-      - name: Commit and Push Changes
+      - name: Generate HTML Report
+        working-directory: scripts
+        run: python generate_html_report.py
+
+      - name: Commit and Push DB & Report to main
         run: |
           git config user.name github-actions
           git config user.email github-actions@github.com
           git pull origin main
-          git add data/data.db
-          git commit -m "Update site monitoring data [automated]" || echo "No changes detected"
+          git add data/data.db report.html
+          git commit -m "Update site data and HTML report" || echo "No changes detected"
           git push origin main
+
+      - name: Deploy Report to Pages Branch
+        run: |
+          git checkout --orphan pages
+          git reset --hard
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          mv report.html index.html
+          git add index.html
+          git commit -m "Deploy updated report to GitHub Pages"
+          git push origin pages --force
