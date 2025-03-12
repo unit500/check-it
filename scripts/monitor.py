@@ -10,18 +10,19 @@ def load_sites(file_path='../sites.txt'):
     with open(file_path, 'r') as file:
         return [line.strip() for line in file if line.strip()]
 
-def insert_check(conn, data):
+def insert_check(conn, host, ip, port, response_time, status):
     cursor = conn.cursor()
     cursor.execute('''
-        INSERT INTO checks (host, ip, port, response_time, status, checked_at)
+        INSERT INTO checks (host, ip, port, response_time, status)
         VALUES (?, ?, ?, ?, ?)
-    ''', data)
+    ''', (host, ip, port, response_time, status))
     conn.commit()
 
 def insert_check_for_site(conn, url):
+    from urllib.parse import urlparse
     parsed = urlparse(url)
     host = parsed.hostname or parsed.path
-    port = 443 if parsed.scheme == "https" else 80
+    port = 443 if parsed.scheme == 'https' else 80
 
     try:
         ip = socket.gethostbyname(host)
@@ -36,14 +37,14 @@ def insert_check_for_site(conn, url):
     except requests.RequestException:
         response_time = None
         status = 0
-    else:
-        response_time = (datetime.now() - start_time).total_seconds()
 
-    data = (host, ip, port, response_time, status)
-    insert_check(conn, data)
+    insert_check(conn, host, ip, port, response_time, status)
     print(f"Checked {url} - Status: {status}, Response time: {response_time}s")
 
 if __name__ == "__main__":
+    import socket
+    import requests
+    from datetime import datetime
     conn = sqlite3.connect(DB_PATH)
     sites = load_sites()
     for url in sites:
