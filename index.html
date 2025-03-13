@@ -1,30 +1,160 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Check-It - Uptime Monitoring</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Check-It | Uptime Monitoring Service</title>
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            monitor: {
+              50: '#eefaff',
+              100: '#d9f2ff',
+              200: '#bae8ff',
+              300: '#83daff',
+              400: '#46c7ff',
+              500: '#1aacff',
+              600: '#0090ff',
+              700: '#0077e1',
+              800: '#0561b7',
+              900: '#0c5494',
+              950: '#0b315a',
+            }
+          }
+        }
+      }
+    }
+  </script>
 </head>
-<body class="min-h-screen bg-gradient-to-b from-white to-gray-50">
-    
-<div class="container mx-auto p-4">
-  <h1 class="text-3xl font-bold mb-4">Welcome to Check-It</h1>
-  <p class="mb-4">This is an open source uptime monitoring solution. Below is a quick overview of your monitoring dashboard:</p>
-  <!-- You can add more details or summary metrics here -->
-  <a href="report.html" class="text-blue-500 underline">View detailed monitoring report</a>
-</div>
+<body class="min-h-screen flex flex-col bg-gradient-to-b from-white to-gray-50">
+  <!-- Header -->
+  <header class="w-full bg-gradient-to-r from-monitor-900 to-monitor-700 text-white relative">
+    <div class="container mx-auto py-6 px-4 flex justify-between items-center">
+      <div class="flex items-center gap-3">
+        <!-- Hamburger Menu Icon -->
+        <button id="menu-toggle" class="p-2 focus:outline-none">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+          </svg>
+        </button>
+        <!-- Server Icon -->
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-monitor-300" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+          <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+        </svg>
+        <h1 class="text-3xl font-bold tracking-tight">Check-It</h1>
+      </div>
+      <a href="https://github.com/your-repository-url" target="_blank" rel="noreferrer" aria-label="GitHub repository" class="p-2 rounded-full hover:bg-monitor-800 hover:text-white">
+        <!-- GitHub Icon -->
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
+        </svg>
+      </a>
+    </div>
+    <!-- Hamburger Menu Dropdown -->
+    <nav id="mobile-menu" class="hidden absolute top-full left-0 w-full bg-monitor-700 text-white">
+      <ul>
+        <li>
+          <a href="report.html" class="block px-4 py-2 hover:bg-monitor-800">View Report</a>
+        </li>
+      </ul>
+    </nav>
+    <div class="container mx-auto mt-10 pb-10 px-4 max-w-3xl">
+      <h2 class="text-xl md:text-2xl font-medium mb-4">
+        Free Open Source Remote Servers Uptime Monitor
+      </h2>
+      <p class="text-monitor-100 text-base md:text-lg">
+        Check-It provides real-time monitoring of your web services and servers. Submit your domains below to add them to our continuous uptime checks. Get notified instantly when your services go down or come back online.
+      </p>
+    </div>
+  </header>
 
+  <!-- Main Content -->
+  <main class="flex-1">
+    <div class="container mx-auto px-4 py-10">
+      <div class="max-w-3xl mx-auto mb-12 text-center">
+        <h2 class="text-2xl font-bold text-monitor-800 mb-4">
+          Start Monitoring Your Web Services
+        </h2>
+        <p class="text-gray-600 mb-8">
+          Check-It continuously monitors your websites, APIs, and servers to ensure they're up and running. Get instant alerts when issues occur, so you can respond quickly and minimize downtime.
+        </p>
+      </div>
+      <!-- Monitor Form -->
+      <div class="max-w-lg mx-auto bg-white rounded-lg shadow-md p-6 border border-gray-200">
+        <h3 class="text-xl font-semibold text-center mb-6">Add a Website to Monitor</h3>
+        <form id="monitorForm" class="space-y-4">
+          <div>
+            <label for="domain" class="block text-sm font-medium text-gray-700 mb-1">Domain to monitor</label>
+            <input type="text" id="domain" name="domain" placeholder="www.example.com" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-monitor-500">
+          </div>
+          <div>
+            <label for="protocol" class="block text-sm font-medium text-gray-700 mb-1">Protocol</label>
+            <select id="protocol" name="protocol" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-monitor-500">
+              <option value="https" selected>HTTPS</option>
+              <option value="http">HTTP</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Monitoring Duration</label>
+            <div class="flex space-x-4">
+              <div class="flex items-center">
+                <input type="radio" id="duration1" name="duration" value="1" checked class="h-4 w-4 text-monitor-600 border-gray-300 focus:ring-monitor-500">
+                <label for="duration1" class="ml-2 text-sm text-gray-700">1 Hour</label>
+              </div>
+              <div class="flex items-center">
+                <input type="radio" id="duration3" name="duration" value="3" class="h-4 w-4 text-monitor-600 border-gray-300 focus:ring-monitor-500">
+                <label for="duration3" class="ml-2 text-sm text-gray-700">3 Hours</label>
+              </div>
+            </div>
+          </div>
+          <button type="submit" class="w-full bg-monitor-600 hover:bg-monitor-700 text-white font-medium py-2 px-4 rounded-md transition-colors">
+            Start Monitoring
+          </button>
+          <p class="text-xs text-gray-500 text-center mt-2">
+            Your data will be processed via AWS API Gateway
+          </p>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-gray-900 text-gray-400 py-8">
+    <div class="container mx-auto px-4 text-center">
+      <p class="text-sm">
+        Check-It &copy; 2025 - Open Source Uptime Monitoring
+      </p>
+      <p class="text-xs mt-2">
+        Built with modern web technologies for reliability and performance
+      </p>
+    </div>
+  </footer>
+
+  <!-- Inline JavaScript for Menu Toggle and Form Handling -->
+  <script>
+    // Hamburger menu toggle
+    document.getElementById('menu-toggle').addEventListener('click', function() {
+      var menu = document.getElementById('mobile-menu');
+      menu.classList.toggle('hidden');
+    });
     
-    <footer class="bg-gray-900 text-gray-400 py-8">
-        <div class="container mx-auto px-4 text-center">
-            <p class="text-sm">
-                Check-It &copy; 2025 - Open Source Uptime Monitoring
-            </p>
-            <p class="text-xs mt-2">
-                Built with modern web technologies for reliability and performance
-            </p>
-        </div>
-    </footer>
+    // Form submission handler
+    document.getElementById('monitorForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const domain = document.getElementById('domain').value;
+      const protocol = document.getElementById('protocol').value;
+      const duration = document.querySelector('input[name="duration"]:checked').value;
+      console.log('Monitoring request:', { domain, protocol, duration, timestamp: new Date().toISOString() });
+      alert(`Monitoring started for ${protocol}://${domain} for ${duration} hour(s)!`);
+      this.reset();
+      document.getElementById('protocol').value = 'https';
+      document.getElementById('duration1').checked = true;
+    });
+  </script>
 </body>
 </html>
