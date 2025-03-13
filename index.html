@@ -139,11 +139,6 @@
 
   <!-- Inline JavaScript for Menu Toggle and Form Handling -->
   <script>
-    // Set current year in footer
-    document.addEventListener('DOMContentLoaded', function() {
-      document.querySelector('footer span#currentYear')?.textContent = new Date().getFullYear();
-    });
-
     // Hamburger menu toggle
     document.getElementById('menu-toggle').addEventListener('click', function() {
       var menu = document.getElementById('mobile-menu');
@@ -157,8 +152,8 @@
       const protocol = document.getElementById('protocol').value;
       const duration = document.querySelector('input[name="duration"]:checked').value;
       
-      // Define your API Gateway endpoint URL (update if needed)
-      const endpoint = "https://pz83cfr455.execute-api.us-east-1.amazonaws.com/submit-scan";
+      // Update the endpoint URL to your new working endpoint
+      const endpoint = "https://new-endpoint.example.com/submit-scan";
       
       // Prepare the data payload
       const data = { domain, protocol, duration };
