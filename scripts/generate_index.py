@@ -2,7 +2,7 @@ import os
 from jinja2 import Environment, FileSystemLoader
 import datetime
 
-# Define the directory where your templates are stored
+# Set the directory where your templates are stored
 template_dir = os.path.join(os.path.dirname(__file__), "../templates")
 env = Environment(loader=FileSystemLoader(template_dir))
 
