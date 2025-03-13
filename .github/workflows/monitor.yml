@@ -31,26 +31,31 @@ jobs:
         working-directory: scripts
         run: python generate_html_report.py
 
-      - name: Commit and Push DB & Report to main
+      - name: Generate Index Page
+        working-directory: scripts
+        run: python generate_index.py
+
+      - name: Commit and Push DB, Report, and Index to main
         run: |
           git config user.name github-actions
           git config user.email github-actions@github.com
           git pull origin main
-          git add data/data.db report.html
-          git commit -m "Update site data and HTML report" || echo "No changes detected"
+          git add data/data.db report.html index.html
+          git commit -m "Update site data, report, and index page [automated]" || echo "No changes detected"
           git push origin main
 
       - name: Deploy Report to Pages Branch
         run: |
           git config user.name github-actions
           git config user.email github-actions@github.com
-          # Save the generated report to a temporary location
+          # Save the generated report and index to a temporary location
           cp report.html /tmp/report.html
+          cp index.html /tmp/index.html
           # Stash any local changes to avoid merge conflicts
           git stash --include-untracked || echo "Nothing to stash"
-          # Attempt to check out the remote pages branch; if it fails, create an orphan branch.
+          # If the remote 'pages' branch exists, check it out; otherwise, create an orphan branch.
           if git ls-remote --exit-code origin pages; then
-            echo "Pages branch exists. Attempting to check it out."
+            echo "Pages branch exists. Checking out."
             if ! git checkout -B pages origin/pages; then
               echo "Failed to check out origin/pages; creating orphan branch."
               git checkout --orphan pages
@@ -61,8 +66,9 @@ jobs:
           fi
           # Remove all files in the current branch
           git rm -rf . || true
-          # Restore the report file and rename it to index.html
-          cp /tmp/report.html index.html
-          git add index.html
-          git commit -m "Deploy updated report to GitHub Pages" || echo "No changes to deploy"
+          # Restore the index file (as the homepage) and report for reference
+          cp /tmp/index.html index.html
+          cp /tmp/report.html report.html
+          git add index.html report.html
+          git commit -m "Deploy updated index and report to GitHub Pages" || echo "No changes to deploy"
           git push origin pages --force
