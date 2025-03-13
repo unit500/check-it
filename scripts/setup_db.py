@@ -45,6 +45,18 @@ cursor.execute('''
     )
 ''')
 
+# Updated duplicates table to include last_scan_time
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS duplicates (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        domain TEXT,
+        protocol TEXT,
+        duration INTEGER,
+        start_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        last_scan_time TIMESTAMP
+    )
+''')
+
 conn.commit()
 conn.close()
 print("Database initialized successfully.")
