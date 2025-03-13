@@ -86,6 +86,60 @@
           If a site is under a DDoS attack, you can measure and identify it reliably using this service.
         </p>
       </div>
+      
+      <!-- Feature Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
+        <!-- Card 1 -->
+        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-100 flex flex-col items-center text-center">
+          <div class="bg-monitor-100 p-3 rounded-full mb-4">
+            <!-- Activity Icon -->
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-monitor-600" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+            </svg>
+          </div>
+          <h3 class="font-semibold text-lg mb-2">Real-time Monitoring</h3>
+          <p class="text-gray-500 text-sm">Continuous checks at regular intervals to identify whether sites are impacted by DDoS cyber attacks</p>
+        </div>
+        
+        <!-- Card 2 -->
+        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-100 flex flex-col items-center text-center">
+          <div class="bg-monitor-100 p-3 rounded-full mb-4">
+            <!-- Zap Icon -->
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-monitor-600" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+            </svg>
+          </div>
+          <h3 class="font-semibold text-lg mb-2">Free & Open</h3>
+          <p class="text-gray-500 text-sm">Running on GitHub and 100% open and free for use by anyone</p>
+        </div>
+        
+        <!-- Card 3 -->
+        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-100 flex flex-col items-center text-center">
+          <div class="bg-monitor-100 p-3 rounded-full mb-4">
+            <!-- Shield Icon -->
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-monitor-600" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            </svg>
+          </div>
+          <h3 class="font-semibold text-lg mb-2">Unit500 Integrated</h3>
+          <p class="text-gray-500 text-sm">Natively integrated with Unit500 DDoS reporting website to provide proof of attacks</p>
+        </div>
+        
+        <!-- Card 4 -->
+        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-100 flex flex-col items-center text-center">
+          <div class="bg-monitor-100 p-3 rounded-full mb-4">
+            <!-- Globe Icon -->
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-monitor-600" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="2" y1="12" x2="22" y2="12"></line>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+            </svg>
+          </div>
+          <h3 class="font-semibold text-lg mb-2">Open Source</h3>
+          <p class="text-gray-500 text-sm">Use this repo online on GitHub or clone the repository and run your own tests</p>
+        </div>
+      </div>
+      
       <!-- Monitor Form -->
       <div class="max-w-lg mx-auto bg-white rounded-lg shadow-md p-6 border border-gray-200">
         <h3 class="text-xl font-semibold text-center mb-6">Add a Website to Monitor</h3>
@@ -139,45 +193,46 @@
 
   <!-- Inline JavaScript for Menu Toggle and Form Handling -->
   <script>
-    // Hamburger menu toggle
-    document.getElementById('menu-toggle').addEventListener('click', function() {
-      var menu = document.getElementById('mobile-menu');
-      menu.classList.toggle('hidden');
-    });
-    
-    // Form submission handler that calls the AWS API Gateway endpoint
-    document.getElementById('monitorForm').addEventListener('submit', function(e) {
-      e.preventDefault();
-      const domain = document.getElementById('domain').value;
-      const protocol = document.getElementById('protocol').value;
-      const duration = document.querySelector('input[name="duration"]:checked').value;
-      
-      // Update the endpoint URL to your new working endpoint
-      const endpoint = "https://new-endpoint.example.com/submit-scan";
-      
-      // Prepare the data payload
-      const data = { domain, protocol, duration };
-      
-      // Send the POST request to the endpoint
-      fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      })
-      .then(response => response.json())
-      .then(result => {
-        console.log('API response:', result);
-        alert(result.message || "Monitoring started successfully!");
-      })
-      .catch(error => {
-        console.error('Error:', error);
-        alert("An error occurred while starting monitoring.");
+    document.addEventListener("DOMContentLoaded", function() {
+      // Hamburger menu toggle
+      document.getElementById('menu-toggle').addEventListener('click', function() {
+        var menu = document.getElementById('mobile-menu');
+        menu.classList.toggle('hidden');
       });
       
-      // Optionally, reset the form
-      this.reset();
-      document.getElementById('protocol').value = 'https';
-      document.getElementById('duration1').checked = true;
+      // Form submission handler that calls the AWS API Gateway endpoint
+      const form = document.getElementById('monitorForm');
+      form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const domain = document.getElementById('domain').value;
+        const protocol = document.getElementById('protocol').value;
+        const duration = document.querySelector('input[name="duration"]:checked').value;
+        
+        // Use the working endpoint from your API Gateway
+        const endpoint = "https://pz83cfr455.execute-api.us-east-1.amazonaws.com/submit-scan";
+        const data = { domain, protocol, duration };
+        
+        console.log("Submitting monitoring request:", data);
+        fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+          console.log("API response:", result);
+          alert(result.message || "Monitoring started successfully!");
+        })
+        .catch(error => {
+          console.error("Error:", error);
+          alert("An error occurred while starting monitoring.");
+        });
+        
+        // Optionally, reset the form
+        form.reset();
+        document.getElementById('protocol').value = 'https';
+        document.getElementById('duration1').checked = true;
+      });
     });
   </script>
 </body>
