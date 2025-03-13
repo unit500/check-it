@@ -3,7 +3,7 @@ import sqlite3
 conn = sqlite3.connect('../data/data.db')
 cursor = conn.cursor()
 
-# Create the scans table (summary of each domain being monitored)
+# Create the scans table (summary of monitored domains)
 cursor.execute('''
     CREATE TABLE IF NOT EXISTS scans (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
