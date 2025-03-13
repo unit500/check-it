@@ -6,6 +6,8 @@
   <title>Check-It | Uptime Monitoring Service</title>
   <!-- Tailwind CSS via CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google reCAPTCHA v2 -->
+  <script src="https://www.google.com/recaptcha/api.js" async defer></script>
   <script>
     tailwind.config = {
       theme: {
@@ -69,7 +71,7 @@
       </h2>
       <p class="text-monitor-100 text-base md:text-lg">
         Check-It provides real-time monitoring of your web services and servers. 
-        Submit any domain below to check for the next few hours whether the site is online or not. 
+        Submit any domain below to check for the next few hours whether the site is online or not.
       </p>
     </div>
   </header>
@@ -168,6 +170,8 @@
               </div>
             </div>
           </div>
+          <!-- Google reCAPTCHA widget -->
+          <div class="g-recaptcha" data-sitekey="6Lepe_MqAAAAALRL0aRG7TFMmAmFFcwWmjMZWrcb"></div>
           <button type="submit" class="w-full bg-monitor-600 hover:bg-monitor-700 text-white font-medium py-2 px-4 rounded-md transition-colors">
             Start Monitoring
           </button>
@@ -208,9 +212,15 @@
         const protocol = document.getElementById('protocol').value;
         const duration = document.querySelector('input[name="duration"]:checked').value;
         
-        // Use the working endpoint from your API Gateway
+        // Get the reCAPTCHA response token
+        const recaptchaToken = grecaptcha.getResponse();
+        if (!recaptchaToken) {
+          alert("Please complete the CAPTCHA challenge.");
+          return;
+        }
+        
         const endpoint = "https://pz83cfr455.execute-api.us-east-1.amazonaws.com/submit-scan";
-        const data = { domain, protocol, duration };
+        const data = { domain, protocol, duration, recaptchaToken };
         
         console.log("Submitting monitoring request:", data);
         fetch(endpoint, {
@@ -222,10 +232,13 @@
         .then(result => {
           console.log("API response:", result);
           alert(result.message || "Monitoring started successfully!");
+          // Reset reCAPTCHA widget after submission
+          grecaptcha.reset();
         })
         .catch(error => {
           console.error("Error:", error);
           alert("An error occurred while starting monitoring.");
+          grecaptcha.reset();
         });
         
         // Optionally, reset the form
