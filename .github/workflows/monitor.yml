@@ -48,12 +48,9 @@ jobs:
         run: |
           git config user.name github-actions
           git config user.email github-actions@github.com
-          # Save the generated report and index to a temporary location
           cp report.html /tmp/report.html
           cp index.html /tmp/index.html
-          # Stash any local changes to avoid merge conflicts
           git stash --include-untracked || echo "Nothing to stash"
-          # If the remote 'pages' branch exists, check it out; otherwise, create an orphan branch.
           if git ls-remote --exit-code origin pages; then
             echo "Pages branch exists. Checking out."
             if ! git checkout -B pages origin/pages; then
@@ -64,9 +61,7 @@ jobs:
             echo "Pages branch does not exist. Creating orphan branch."
             git checkout --orphan pages
           fi
-          # Remove all files in the current branch
           git rm -rf . || true
-          # Restore the index file (as the homepage) and report for reference
           cp /tmp/index.html index.html
           cp /tmp/report.html report.html
           git add index.html report.html
