@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Check-It - Uptime Monitoring</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="min-h-screen bg-gradient-to-b from-white to-gray-50">
+    {% block content %}{% endblock %}
+    
+    <footer class="bg-gray-900 text-gray-400 py-8">
+        <div class="container mx-auto px-4 text-center">
+            <p class="text-sm">
+                Check-It &copy; {{ current_year }} - Open Source Uptime Monitoring
+            </p>
+            <p class="text-xs mt-2">
+                Built with modern web technologies for reliability and performance
+            </p>
+        </div>
+    </footer>
+</body>
+</html>
