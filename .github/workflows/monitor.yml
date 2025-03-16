@@ -25,15 +25,7 @@ jobs:
 
       - name: Run Monitoring Script
         working-directory: scripts
-        run: python monitor.py
-
-      - name: Generate HTML Report
-        working-directory: scripts
-        run: python generate_html_report.py
-
-      - name: Generate Index Page
-        working-directory: scripts
-        run: python generate_index.py
+        run: python main.py
 
       - name: Commit and Push DB, Report, and Index to main
         run: |
