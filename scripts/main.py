@@ -1,12 +1,13 @@
 import argparse
 import logging
 from monitoring import Monitoring
-#from reports_module import Reports
+#sys.path.append(os.path.dirname(os.path.abspath(__file__)))  # Ensure scripts folder is in path
+from reports_module import Reports
 from index import Index
 import os
 
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))  # Ensure scripts folder is in path
-from reports_module import Reports
+
+
 
 print("Main script loaded successfully!")
 
