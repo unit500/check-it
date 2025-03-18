@@ -4,9 +4,11 @@ import platform
 import socket
 import logging
 import os
+from datetime import datetime
 
 class Monitoring:
     def __init__(self, db_path=None, hosts=None, debug=False):
+        """Initialize the monitoring class, setting up database path and hosts list."""
         self.debug = debug
         script_dir = os.path.dirname(os.path.abspath(__file__))
         self.db_path = db_path if db_path else os.path.join(script_dir, "..", "data", "data.db")
@@ -17,7 +19,7 @@ class Monitoring:
             self.hosts = self.load_hosts_from_db()
 
     def load_hosts_from_db(self):
-        """Read the scans table from the database and return the list of active domains."""
+        """Read the `scans` table from the database and return active domains."""
         hosts = []
         try:
             conn = sqlite3.connect(self.db_path)
@@ -32,6 +34,7 @@ class Monitoring:
         return hosts
 
     def run(self):
+        """Runs monitoring checks for all hosts in the list and stores the results."""
         logging.debug("Starting monitoring checks for hosts: %s", self.hosts)
         results = []
         for host in self.hosts:
@@ -42,7 +45,11 @@ class Monitoring:
         return results
 
     def check_host(self, host, port=80):
-        """Ping the host and try connecting to the given port."""
+        """
+        Check if a host is reachable via:
+        - A **ping test** to determine network connectivity.
+        - A **TCP connection attempt** to the specified port.
+        """
         logging.debug("Checking host: %s on port %d", host, port)
         
         # Step 1: Ping the host
@@ -74,12 +81,41 @@ class Monitoring:
         return status, details
 
     def update_host_status(self, host, status, details):
-        """Update the host status and details in the database."""
+        """Update the database with the monitoring result of a host."""
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-            cursor.execute("UPDATE scans SET status = ?, details = ? WHERE domain = ?", (status, details, host))
+
+            # Fetch current scan counts
+            cursor.execute("SELECT total_scans, successful_scans, failed_scans FROM scans WHERE domain = ?", (host,))
+            row = cursor.fetchone()
+
+            if row:
+                total_scans, successful_scans, failed_scans = row
+                total_scans += 1
+                if status == "Up":
+                    successful_scans += 1
+                else:
+                    failed_scans += 1
+            else:
+                total_scans, successful_scans, failed_scans = 1, 1 if status == "Up" else 0, 1 if status == "Down" else 0
+
+            # Update scan results
+            cursor.execute("""
+                UPDATE scans SET 
+                    status = ?, 
+                    details = ?, 
+                    last_scan_time = ?, 
+                    total_scans = ?, 
+                    successful_scans = ?, 
+                    failed_scans = ? 
+                WHERE domain = ?""",
+                (status, details, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), total_scans, successful_scans, failed_scans, host)
+            )
+
             conn.commit()
             conn.close()
+            logging.debug("Updated scan counts for %s - Total: %d, Success: %d, Failed: %d", host, total_scans, successful_scans, failed_scans)
+
         except Exception as e:
             logging.error("Failed to update status for %s: %s", host, e)
