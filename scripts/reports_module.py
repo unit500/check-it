@@ -1,94 +1,147 @@
-import sqlite3
-import subprocess
-import platform
-import socket
+from datetime import datetime
+from jinja2 import Template
 import logging
 import os
+import sqlite3
 
-class Monitoring:
-    def __init__(self, db_path=None, hosts=None, debug=False):
-        """Initialize the monitoring class, setting up database path and hosts list."""
+class Reports:
+    def __init__(self, debug=False):
+        """Initialize report generation, set file paths."""
         self.debug = debug
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        self.db_path = db_path if db_path else os.path.join(script_dir, "..", "data", "data.db")
-        
-        if hosts is not None:
-            self.hosts = hosts
-        else:
-            self.hosts = self.load_hosts_from_db()
+        self.report_filename = os.path.join(script_dir, "..", "report.html")
+        self.db_path = os.path.join(script_dir, "..", "data", "data.db")
 
-    def load_hosts_from_db(self):
-        """Read the `scans` table from the database and return active domains."""
-        hosts = []
+    def fetch_latest_results(self):
+        """Retrieve the latest results from the database, including timestamps."""
+        results = []
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-            cursor.execute("SELECT domain FROM scans WHERE finished = 0")
+            cursor.execute("SELECT domain, status, details, start_time, last_scan_time FROM scans WHERE finished = 0")
             rows = cursor.fetchall()
-            hosts = [row[0] for row in rows]
+            results = [
+                {
+                    "host": row[0],
+                    "status": row[1],
+                    "details": row[2] if row[2] else "No details available",
+                    "start_time": row[3] if row[3] else "N/A",
+                    "last_scan_time": row[4] if row[4] else "N/A",
+                }
+                for row in rows
+            ]
             conn.close()
-            logging.debug("Loaded hosts from DB: %s", hosts)
         except Exception as e:
-            logging.error("Error loading hosts from DB: %s", e)
-        return hosts
-
-    def run(self):
-        """Runs monitoring checks for all hosts in the list and stores the results."""
-        logging.debug("Starting monitoring checks for hosts: %s", self.hosts)
-        results = []
-        for host in self.hosts:
-            status, details = self.check_host(host)
-            results.append({"host": host, "status": status, "details": details})
-            self.update_host_status(host, status, details)  # Update DB with status and details
-            logging.debug("Host %s status: %s, Details: %s", host, status, details)
+            logging.error("Failed to fetch latest results: %s", e)
         return results
 
-    def check_host(self, host, port=80):
+    def generate(self):
         """
-        Check if a host is reachable via:
-        - A **ping test** to determine network connectivity.
-        - A **TCP connection attempt** to the specified port.
+        Generate an HTML report using the monitoring results.
         """
-        logging.debug("Checking host: %s on port %d", host, port)
-        
-        # Step 1: Ping the host
-        ping_status = "Ping failed"
-        try:
-            if platform.system().lower() == 'windows':
-                cmd = ["ping", "-n", "1", "-w", "2000", host]
-            else:
-                cmd = ["ping", "-c", "1", "-W", "2", host]
-            result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            if result.returncode == 0:
-                ping_status = "Ping successful"
-        except Exception as e:
-            logging.error("Ping error for %s: %s", host, e)
-        
-        # Step 2: Attempt a TCP connection
-        connection_status = "Connection failed"
-        try:
-            with socket.create_connection((host, port), timeout=3):
-                connection_status = "Connection successful"
-        except Exception as e:
-            connection_status = f"Connection error: {e}"
-            logging.error("Connection error for %s: %s", host, e)
+        results = self.fetch_latest_results()
+        total = len(results)
+        up_count = sum(1 for r in results if r["status"] == "Up")
+        down_count = total - up_count
+        now = datetime.now()
+        display_time = now.strftime("%Y-%m-%d %H:%M:%S")
 
-        # Determine final status
-        status = "Up" if "successful" in connection_status else "Down"
-        details = f"{ping_status}, {connection_status}"
-        
-        return status, details
+        # Updated HTML template with Tailwind CSS
+        HTML_TEMPLATE = """
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Reports | Check-It Uptime Monitoring</title>
+            <!-- Tailwind CSS via CDN -->
+            <script src="https://cdn.tailwindcss.com"></script>
+        </head>
+        <body class="min-h-screen flex flex-col bg-gradient-to-b from-white to-gray-50">
 
-    def update_host_status(self, host, status, details):
-        """Update the database with the monitoring result of a host."""
+            <!-- Header -->
+            <header class="w-full bg-gradient-to-r from-blue-900 to-blue-700 text-white shadow-lg">
+                <div class="container mx-auto py-6 px-4 text-center">
+                    <h1 class="text-3xl font-bold tracking-tight">Check-It Uptime Monitoring</h1>
+                    <p class="text-monitor-100 text-lg mt-2">
+                        Real-time server monitoring with detailed status reports.
+                    </p>
+                </div>
+            </header>
+
+            <!-- Main Content -->
+            <main class="flex-1">
+                <div class="container mx-auto px-4 py-10">
+                    <div class="max-w-6xl mx-auto bg-white shadow-md rounded-lg p-6">
+                        <div class="border-b pb-4 mb-6">
+                            <h3 class="text-2xl font-semibold">Monitoring Report</h3>
+                            <p class="text-gray-500 text-sm">Generated on: {{ display_time }}</p>
+                        </div>
+
+                        <p class="text-lg font-semibold mb-4">
+                            Status: 
+                            {% if down_count == 0 %}
+                                <span class="text-green-500">All {{ total }} hosts are UP</span>
+                            {% else %}
+                                <span class="text-red-500">{{ down_count }} out of {{ total }} hosts are DOWN</span>
+                            {% endif %}
+                        </p>
+
+                        <!-- Table -->
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full border border-gray-300 text-sm text-left">
+                                <thead class="bg-blue-50 text-blue-900">
+                                    <tr>
+                                        <th class="border border-gray-300 px-4 py-2">Host</th>
+                                        <th class="border border-gray-300 px-4 py-2">Status</th>
+                                        <th class="border border-gray-300 px-4 py-2">Details</th>
+                                        <th class="border border-gray-300 px-4 py-2">Start Time</th>
+                                        <th class="border border-gray-300 px-4 py-2">Last Scan Time</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for entry in results %}
+                                    <tr class="border border-gray-300 {% if loop.index is even %} bg-gray-50 {% endif %}">
+                                        <td class="px-4 py-2 font-medium">{{ entry.host }}</td>
+                                        <td class="px-4 py-2">
+                                            {% if entry.status == "Up" %}
+                                                <span class="inline-flex px-2 py-1 rounded-full bg-green-100 text-green-800 font-semibold">Up</span>
+                                            {% else %}
+                                                <span class="inline-flex px-2 py-1 rounded-full bg-red-100 text-red-800 font-semibold">Down</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="px-4 py-2 text-gray-600">{{ entry.details }}</td>
+                                        <td class="px-4 py-2 text-gray-500">{{ entry.start_time }}</td>
+                                        <td class="px-4 py-2 text-gray-500">{{ entry.last_scan_time }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </main>
+            
+            <!-- Footer -->
+            <footer class="bg-gray-900 text-gray-400 py-6 text-center">
+                <p class="text-sm">Check-It &copy; <span id="currentYear"></span> - Open Source Uptime Monitoring</p>
+            </footer>
+
+            <script>
+                // Set current year in footer
+                document.getElementById('currentYear').textContent = new Date().getFullYear();
+            </script>
+        </body>
+        </html>
+        """
+        template = Template(HTML_TEMPLATE)
+        html_content = template.render(results=results, total=total, up_count=up_count, down_count=down_count, display_time=display_time)
+
         try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-            cursor.execute(
-                "UPDATE scans SET status = ?, details = ?, last_scan_time = ? WHERE domain = ?", 
-                (status, details, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), host)
-            )
-            conn.commit()
-            conn.close()
+            with open(self.report_filename, "w", encoding="utf-8") as f:
+                f.write(html_content)
+            logging.info("Report generated successfully: %s", self.report_filename)
         except Exception as e:
-            logging.error("Failed to update status for %s: %s", host, e)
+            logging.error("Failed to write report file: %s", e)
+
+        return self.report_filename
