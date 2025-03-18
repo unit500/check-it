@@ -2,7 +2,7 @@ import os
 import random
 import string
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from jinja2 import Template
 
 class Reports:
@@ -21,9 +21,6 @@ class Reports:
         now = datetime.now()
         display_time = now.strftime("%Y-%m-%d %H:%M:%S")
 
-        # Calculate progress percentage
-        progress = round((successful_checks / total_checks) * 100, 2) if total_checks > 0 else 0
-
         def generate_missing_id():
             """Generate an ID if unique_id is missing (XXX9999XXX11 format)."""
             letters = string.ascii_lowercase
@@ -39,6 +36,14 @@ class Reports:
         for entry in results:
             if "unique_id" not in entry or not entry["unique_id"]:
                 entry["unique_id"] = generate_missing_id()
+
+            # Calculate progress
+            start_time = datetime.strptime(entry["start_time"], "%Y-%m-%d %H:%M:%S")
+            duration_hours = entry["duration"]
+            elapsed_time = (now - start_time).total_seconds() / 3600  # Convert to hours
+            progress = min(round((elapsed_time / duration_hours) * 100, 2), 100) if duration_hours > 0 else 100
+
+            entry["progress"] = f"{progress}%"  # Store progress as a string with %
 
         # HTML Report Template
         HTML_TEMPLATE = """
@@ -70,33 +75,6 @@ class Reports:
                             Status: <span class="text-blue-500">Currently monitoring {{ total_checks }} addresses</span>
                         </p>
 
-                        <div class="mb-6">
-                            <table class="w-full border border-gray-300 text-sm text-left">
-                                <thead class="bg-blue-50 text-blue-900">
-                                    <tr>
-                                        <th class="border border-gray-300 px-4 py-2">Progress</th>
-                                        <td class="border border-gray-300 px-4 py-2 font-semibold text-green-700">{{ progress }}%</td>
-                                    </tr>
-                                    <tr>
-                                        <th class="border border-gray-300 px-4 py-2">Total Checks</th>
-                                        <td class="border border-gray-300 px-4 py-2">{{ total_checks }}</td>
-                                    </tr>
-                                    <tr>
-                                        <th class="border border-gray-300 px-4 py-2">Successful Checks</th>
-                                        <td class="border border-gray-300 px-4 py-2 text-green-600">{{ successful_checks }}</td>
-                                    </tr>
-                                    <tr>
-                                        <th class="border border-gray-300 px-4 py-2">Failed Checks</th>
-                                        <td class="border border-gray-300 px-4 py-2 text-red-600">{{ failed_checks }}</td>
-                                    </tr>
-                                    <tr>
-                                        <th class="border border-gray-300 px-4 py-2">Last Check Time</th>
-                                        <td class="border border-gray-300 px-4 py-2 text-gray-500">{{ display_time }}</td>
-                                    </tr>
-                                </thead>
-                            </table>
-                        </div>
-
                         <div class="overflow-x-auto">
                             <table class="w-full border border-gray-300 text-sm text-left">
                                 <thead class="bg-blue-50 text-blue-900">
@@ -104,6 +82,7 @@ class Reports:
                                         <th class="border border-gray-300 px-4 py-2">ID</th>
                                         <th class="border border-gray-300 px-4 py-2">Host</th>
                                         <th class="border border-gray-300 px-4 py-2">Status</th>
+                                        <th class="border border-gray-300 px-4 py-2">Progress</th>
                                         <th class="border border-gray-300 px-4 py-2">Details</th>
                                     </tr>
                                 </thead>
@@ -119,6 +98,7 @@ class Reports:
                                                 <span class="inline-flex px-2 py-1 rounded-full bg-red-100 text-red-800 font-semibold">Down</span>
                                             {% endif %}
                                         </td>
+                                        <td class="px-4 py-2 font-semibold text-blue-700">{{ entry.progress }}</td>
                                         <td class="px-4 py-2 text-gray-600">{{ entry.details }}</td>
                                     </tr>
                                     {% endfor %}
@@ -145,7 +125,6 @@ class Reports:
             total_checks=total_checks,
             successful_checks=successful_checks,
             failed_checks=failed_checks,
-            progress=progress,
             display_time=display_time
         )
 
