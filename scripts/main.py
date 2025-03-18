@@ -1,15 +1,8 @@
 import argparse
 import logging
 from monitoring import Monitoring
-#sys.path.append(os.path.dirname(os.path.abspath(__file__)))  # Ensure scripts folder is in path
-from reports_module import Reports
+from reports_module import Reports  # Ensure the correct module name
 from index import Index
-import os
-
-
-
-
-print("Main script loaded successfully!")
 
 if __name__ == "__main__":
     # Parse command-line arguments
@@ -23,16 +16,16 @@ if __name__ == "__main__":
     
     logging.info("Starting monitoring sequence...")
     
-    # 1. Run monitoring checks
+    # Run monitoring checks
     monitor = Monitoring(debug=args.debug)
-    results = monitor.run()
+    results = monitor.run()  # Fetch results
     
-    # 2. Generate HTML report from database (DO NOT PASS `results`)
+    # Generate HTML report from results
     report_gen = Reports(debug=args.debug)
-    report_file = report_gen.generate()  # FIXED: No parameters passed
+    report_file = report_gen.generate(results)  # FIXED: Passing 'results' correctly
 
-    # 3. Update index page with the new report info
+    # Update index page with the new report info
     index_page = Index(debug=args.debug)
-    index_page.update(report_file, {})  # Passing an empty dictionary for summary
-    
+    index_page.update(report_file, {"display_time": "N/A"})  # Adjusted for now
+
     logging.info("Monitoring sequence completed.")
