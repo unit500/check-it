@@ -11,7 +11,7 @@
             <header class="w-full bg-gradient-to-r from-blue-900 to-blue-700 text-white shadow-lg">
                 <div class="container mx-auto py-6 px-4 text-center">
                     <h1 class="text-3xl font-bold tracking-tight">Check-It Uptime Monitoring</h1>
-                    <p class="text-monitor-100 text-lg mt-2">Real-time server monitoring with detailed status reports.</p>
+                    <p class="text-lg mt-2">Real-time server monitoring with detailed status reports.</p>
                 </div>
             </header>
 
@@ -20,76 +20,73 @@
                     <div class="max-w-6xl mx-auto bg-white shadow-md rounded-lg p-6">
                         <div class="border-b pb-4 mb-6">
                             <h3 class="text-2xl font-semibold">Monitoring Report</h3>
-                            <p class="text-gray-500 text-sm">Generated on: 2025-03-18 09:52:15</p>
+                            <p class="text-gray-500 text-sm">Generated on: 2025-03-18 10:12:21</p>
                         </div>
 
                         <p class="text-lg font-semibold mb-4">
-                            Status: 
-                            
-                                <span class="text-red-500">0 out of 2 hosts are DOWN</span>
-                            
+                            Status: <span class="text-blue-500">Currently monitoring 2 addresses</span>
                         </p>
 
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full border border-gray-300 text-sm text-left">
+                        <div class="mb-6">
+                            <table class="w-full border border-gray-300 text-sm text-left">
                                 <thead class="bg-blue-50 text-blue-900">
                                     <tr>
-                                        <th class="border border-gray-300 px-4 py-2">Start Time</th>
-                                        <th class="border border-gray-300 px-4 py-2">Status</th>
-                                        <th class="border border-gray-300 px-4 py-2">Host</th>
-                                        <th class="border border-gray-300 px-4 py-2">Total Scans</th>
-                                        <th class="border border-gray-300 px-4 py-2">Successful Scans</th>
-                                        <th class="border border-gray-300 px-4 py-2">Failed Scans</th>
-                                        <th class="border border-gray-300 px-4 py-2">Last Scan Time</th>
-                                        <th class="border border-gray-300 px-4 py-2">Details</th>
+                                        <th class="border border-gray-300 px-4 py-2">Progress</th>
+                                        <td class="border border-gray-300 px-4 py-2 font-semibold text-green-700">100.0%</td>
+                                    </tr>
+                                    <tr>
+                                        <th class="border border-gray-300 px-4 py-2">Total Checks</th>
+                                        <td class="border border-gray-300 px-4 py-2">2</td>
+                                    </tr>
+                                    <tr>
+                                        <th class="border border-gray-300 px-4 py-2">Successful Checks</th>
+                                        <td class="border border-gray-300 px-4 py-2 text-green-600">2</td>
+                                    </tr>
+                                    <tr>
+                                        <th class="border border-gray-300 px-4 py-2">Failed Checks</th>
+                                        <td class="border border-gray-300 px-4 py-2 text-red-600">0</td>
+                                    </tr>
+                                    <tr>
+                                        <th class="border border-gray-300 px-4 py-2">Last Check Time</th>
+                                        <td class="border border-gray-300 px-4 py-2 text-gray-500">2025-03-18 10:12:21</td>
                                     </tr>
                                 </thead>
-                                <tbody>
-                                    
-                                    <tr class="border border-gray-300 ">
-                                        <td class="px-4 py-2 text-gray-500">2025-03-18 09:30:05</td>
-                                        <td class="px-4 py-2  text-green-600 ">Up</td>
-                                        <td class="px-4 py-2 font-medium">queen.com</td>
-                                        <td class="px-4 py-2">4</td>
-                                        <td class="px-4 py-2">4</td>
-                                        <td class="px-4 py-2">0</td>
-                                        <td class="px-4 py-2 text-gray-500">2025-03-18 09:52:15</td>
-                                        <td class="px-4 py-2 text-gray-600">Ping failed, Connection successful</td>
-                                    </tr>
-                                    
-                                    <tr class="border border-gray-300  bg-gray-50 ">
-                                        <td class="px-4 py-2 text-gray-500">2025-03-18 08:41:25</td>
-                                        <td class="px-4 py-2  text-green-600 ">Up</td>
-                                        <td class="px-4 py-2 font-medium">www.example.org</td>
-                                        <td class="px-4 py-2">8</td>
-                                        <td class="px-4 py-2">8</td>
-                                        <td class="px-4 py-2">0</td>
-                                        <td class="px-4 py-2 text-gray-500">2025-03-18 09:52:13</td>
-                                        <td class="px-4 py-2 text-gray-600">Ping failed, Connection successful</td>
-                                    </tr>
-                                    
-                                </tbody>
                             </table>
                         </div>
 
-                        <hr class="my-10 border-gray-300">
-                        <h3 class="text-xl font-semibold mb-4">Latest 10 Completed Checks</h3>
-
                         <div class="overflow-x-auto">
-                            <table class="min-w-full border border-gray-300 text-sm text-left">
-                                <thead class="bg-gray-100 text-gray-900">
+                            <table class="w-full border border-gray-300 text-sm text-left">
+                                <thead class="bg-blue-50 text-blue-900">
                                     <tr>
-                                        <th class="border border-gray-300 px-4 py-2">Start Time</th>
-                                        <th class="border border-gray-300 px-4 py-2">Status</th>
+                                        <th class="border border-gray-300 px-4 py-2">ID</th>
                                         <th class="border border-gray-300 px-4 py-2">Host</th>
-                                        <th class="border border-gray-300 px-4 py-2">Total Scans</th>
-                                        <th class="border border-gray-300 px-4 py-2">Successful Scans</th>
-                                        <th class="border border-gray-300 px-4 py-2">Failed Scans</th>
-                                        <th class="border border-gray-300 px-4 py-2">Last Scan Time</th>
+                                        <th class="border border-gray-300 px-4 py-2">Status</th>
                                         <th class="border border-gray-300 px-4 py-2">Details</th>
                                     </tr>
                                 </thead>
                                 <tbody>
+                                    
+                                    <tr class="border border-gray-300">
+                                        <td class="px-4 py-2 font-semibold">wwn3458tps65</td>
+                                        <td class="px-4 py-2">www.example.org</td>
+                                        <td class="px-4 py-2">
+                                            
+                                                <span class="inline-flex px-2 py-1 rounded-full bg-green-100 text-green-800 font-semibold">Up</span>
+                                            
+                                        </td>
+                                        <td class="px-4 py-2 text-gray-600">Ping failed, Connection successful</td>
+                                    </tr>
+                                    
+                                    <tr class="border border-gray-300">
+                                        <td class="px-4 py-2 font-semibold">rbt2614iup80</td>
+                                        <td class="px-4 py-2">queen.com</td>
+                                        <td class="px-4 py-2">
+                                            
+                                                <span class="inline-flex px-2 py-1 rounded-full bg-green-100 text-green-800 font-semibold">Up</span>
+                                            
+                                        </td>
+                                        <td class="px-4 py-2 text-gray-600">Ping failed, Connection successful</td>
+                                    </tr>
                                     
                                 </tbody>
                             </table>
@@ -97,6 +94,14 @@
                     </div>
                 </div>
             </main>
+
+            <footer class="bg-gray-900 text-gray-400 py-6 text-center">
+                <p class="text-sm">Check-It &copy; <span id="currentYear"></span> - Open Source Uptime Monitoring</p>
+            </footer>
+
+            <script>
+                document.getElementById('currentYear').textContent = new Date().getFullYear();
+            </script>
         </body>
         </html>
         
