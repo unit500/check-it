@@ -1,27 +1,29 @@
-from datetime import datetime
-from jinja2 import Template
-import logging
+import os
 import random
 import string
+import logging
+from datetime import datetime
+from jinja2 import Template
 
 class Reports:
     def __init__(self, debug=False):
         self.debug = debug
+        self.report_filename = os.path.join(os.path.dirname(__file__), "../report.html")
 
     def generate(self, results):
         """
         Generate an HTML report using the provided monitoring results.
-        Returns a tuple (report_filename, summary).
+        Returns the report filename.
         """
         total_checks = len(results)
         successful_checks = sum(1 for r in results if r["status"] == "Up")
         failed_checks = total_checks - successful_checks
         now = datetime.now()
         display_time = now.strftime("%Y-%m-%d %H:%M:%S")
-        
+
         # Calculate progress percentage
         progress = round((successful_checks / total_checks) * 100, 2) if total_checks > 0 else 0
-        
+
         def generate_missing_id():
             """Generate an ID if unique_id is missing (XXX9999XXX11 format)."""
             letters = string.ascii_lowercase
@@ -147,12 +149,11 @@ class Reports:
             display_time=display_time
         )
 
-        report_filename = "../report.html"
         try:
-            with open(report_filename, "w", encoding="utf-8") as f:
+            with open(self.report_filename, "w", encoding="utf-8") as f:
                 f.write(html_content)
-            logging.info("Report generated successfully as %s", report_filename)
+            logging.info("Report generated successfully: %s", self.report_filename)
         except Exception as e:
-            logging.error("Failed to write report file %s: %s", report_filename, e)
+            logging.error("Failed to write report file %s: %s", self.report_filename, e)
 
-        return report_filename
+        return self.report_filename
