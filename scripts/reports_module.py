@@ -32,16 +32,25 @@ class Reports:
                 ''.join(random.choices(numbers, k=2))
             )
 
-        # Ensure all records have a unique ID
+        # Ensure all records have necessary fields
         for entry in results:
             if "unique_id" not in entry or not entry["unique_id"]:
                 entry["unique_id"] = generate_missing_id()
 
+            # Ensure `start_time` exists; if missing, set to now
+            if "start_time" not in entry or not entry["start_time"]:
+                entry["start_time"] = display_time  # Set current time if missing
+
+            # Ensure `duration` exists; default to 1 hour
+            duration_hours = entry.get("duration", 1)
+
             # Calculate progress
-            start_time = datetime.strptime(entry["start_time"], "%Y-%m-%d %H:%M:%S")
-            duration_hours = entry["duration"]
-            elapsed_time = (now - start_time).total_seconds() / 3600  # Convert to hours
-            progress = min(round((elapsed_time / duration_hours) * 100, 2), 100) if duration_hours > 0 else 100
+            try:
+                start_time = datetime.strptime(entry["start_time"], "%Y-%m-%d %H:%M:%S")
+                elapsed_time = (now - start_time).total_seconds() / 3600  # Convert to hours
+                progress = min(round((elapsed_time / duration_hours) * 100, 2), 100) if duration_hours > 0 else 100
+            except ValueError:
+                progress = 100  # If start_time is in an unknown format, assume 100%
 
             entry["progress"] = f"{progress}%"  # Store progress as a string with %
 
