@@ -1,61 +1,44 @@
-import sqlite3
-import logging
-import os
 from datetime import datetime
 from jinja2 import Template
+import logging
+import random
+import string
 
 class Reports:
-    def __init__(self, db_path=None, archive_path=None, output_path=None, debug=False):
-        """Initialize the report generation class with database paths."""
+    def __init__(self, debug=False):
         self.debug = debug
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        self.db_path = db_path if db_path else os.path.join(script_dir, "..", "data", "data.db")
-        self.archive_path = archive_path if archive_path else os.path.join(script_dir, "..", "data", "archive.db")
-        self.output_path = output_path if output_path else os.path.join(script_dir, "..", "report.html")
 
-    def fetch_latest_results(self):
-        """Fetch latest active scan results from data.db."""
-        results = []
-        try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT start_time, status, domain, total_scans, successful_scans, failed_scans, last_scan_time, details 
-                FROM scans
-                WHERE finished = 0
-                ORDER BY last_scan_time DESC
-            """)
-            results = cursor.fetchall()
-            conn.close()
-        except Exception as e:
-            logging.error("Failed to fetch latest results: %s", e)
-        return results
+    def generate(self, results):
+        """
+        Generate an HTML report using the provided monitoring results.
+        Returns a tuple (report_filename, summary).
+        """
+        total_checks = len(results)
+        successful_checks = sum(1 for r in results if r["status"] == "Up")
+        failed_checks = total_checks - successful_checks
+        now = datetime.now()
+        display_time = now.strftime("%Y-%m-%d %H:%M:%S")
+        
+        # Calculate progress percentage
+        progress = round((successful_checks / total_checks) * 100, 2) if total_checks > 0 else 0
+        
+        def generate_missing_id():
+            """Generate an ID if unique_id is missing (XXX9999XXX11 format)."""
+            letters = string.ascii_lowercase
+            numbers = string.digits
+            return (
+                ''.join(random.choices(letters, k=3)) +
+                ''.join(random.choices(numbers, k=4)) +
+                ''.join(random.choices(letters, k=3)) +
+                ''.join(random.choices(numbers, k=2))
+            )
 
-    def fetch_latest_completed_scans(self):
-        """Fetch latest 10 completed scans from archive.db."""
-        results = []
-        try:
-            conn = sqlite3.connect(self.archive_path)
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT start_time, status, domain, total_scans, successful_scans, failed_scans, last_scan_time, details 
-                FROM scans
-                ORDER BY last_scan_time DESC
-                LIMIT 10
-            """)
-            results = cursor.fetchall()
-            conn.close()
-        except Exception as e:
-            logging.error("Failed to fetch latest completed scans: %s", e)
-        return results
+        # Ensure all records have a unique ID
+        for entry in results:
+            if "unique_id" not in entry or not entry["unique_id"]:
+                entry["unique_id"] = generate_missing_id()
 
-    def generate(self):
-        """Generate an HTML report for active scans and latest completed scans."""
-        active_scans = self.fetch_latest_results()
-        completed_scans = self.fetch_latest_completed_scans()
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-        # HTML Template with Tailwind CSS
+        # HTML Report Template
         HTML_TEMPLATE = """
         <!DOCTYPE html>
         <html lang="en">
@@ -69,7 +52,7 @@ class Reports:
             <header class="w-full bg-gradient-to-r from-blue-900 to-blue-700 text-white shadow-lg">
                 <div class="container mx-auto py-6 px-4 text-center">
                     <h1 class="text-3xl font-bold tracking-tight">Check-It Uptime Monitoring</h1>
-                    <p class="text-monitor-100 text-lg mt-2">Real-time server monitoring with detailed status reports.</p>
+                    <p class="text-lg mt-2">Real-time server monitoring with detailed status reports.</p>
                 </div>
             </header>
 
@@ -78,77 +61,63 @@ class Reports:
                     <div class="max-w-6xl mx-auto bg-white shadow-md rounded-lg p-6">
                         <div class="border-b pb-4 mb-6">
                             <h3 class="text-2xl font-semibold">Monitoring Report</h3>
-                            <p class="text-gray-500 text-sm">Generated on: {{ now }}</p>
+                            <p class="text-gray-500 text-sm">Generated on: {{ display_time }}</p>
                         </div>
 
                         <p class="text-lg font-semibold mb-4">
-                            Status: 
-                            {% if active_scans %}
-                                <span class="text-red-500">{{ active_scans | selectattr('status', 'equalto', 'Down') | list | length }} out of {{ active_scans | length }} hosts are DOWN</span>
-                            {% else %}
-                                <span class="text-green-500">No active scans</span>
-                            {% endif %}
+                            Status: <span class="text-blue-500">Currently monitoring {{ total_checks }} addresses</span>
                         </p>
 
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full border border-gray-300 text-sm text-left">
+                        <div class="mb-6">
+                            <table class="w-full border border-gray-300 text-sm text-left">
                                 <thead class="bg-blue-50 text-blue-900">
                                     <tr>
-                                        <th class="border border-gray-300 px-4 py-2">Start Time</th>
-                                        <th class="border border-gray-300 px-4 py-2">Status</th>
-                                        <th class="border border-gray-300 px-4 py-2">Host</th>
-                                        <th class="border border-gray-300 px-4 py-2">Total Scans</th>
-                                        <th class="border border-gray-300 px-4 py-2">Successful Scans</th>
-                                        <th class="border border-gray-300 px-4 py-2">Failed Scans</th>
-                                        <th class="border border-gray-300 px-4 py-2">Last Scan Time</th>
-                                        <th class="border border-gray-300 px-4 py-2">Details</th>
+                                        <th class="border border-gray-300 px-4 py-2">Progress</th>
+                                        <td class="border border-gray-300 px-4 py-2 font-semibold text-green-700">{{ progress }}%</td>
+                                    </tr>
+                                    <tr>
+                                        <th class="border border-gray-300 px-4 py-2">Total Checks</th>
+                                        <td class="border border-gray-300 px-4 py-2">{{ total_checks }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th class="border border-gray-300 px-4 py-2">Successful Checks</th>
+                                        <td class="border border-gray-300 px-4 py-2 text-green-600">{{ successful_checks }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th class="border border-gray-300 px-4 py-2">Failed Checks</th>
+                                        <td class="border border-gray-300 px-4 py-2 text-red-600">{{ failed_checks }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th class="border border-gray-300 px-4 py-2">Last Check Time</th>
+                                        <td class="border border-gray-300 px-4 py-2 text-gray-500">{{ display_time }}</td>
                                     </tr>
                                 </thead>
-                                <tbody>
-                                    {% for row in active_scans %}
-                                    <tr class="border border-gray-300 {% if loop.index is even %} bg-gray-50 {% endif %}">
-                                        <td class="px-4 py-2 text-gray-500">{{ row[0] }}</td>
-                                        <td class="px-4 py-2 {% if row[1] == 'Up' %} text-green-600 {% else %} text-red-600 {% endif %}">{{ row[1] }}</td>
-                                        <td class="px-4 py-2 font-medium">{{ row[2] }}</td>
-                                        <td class="px-4 py-2">{{ row[3] }}</td>
-                                        <td class="px-4 py-2">{{ row[4] }}</td>
-                                        <td class="px-4 py-2">{{ row[5] }}</td>
-                                        <td class="px-4 py-2 text-gray-500">{{ row[6] }}</td>
-                                        <td class="px-4 py-2 text-gray-600">{{ row[7] }}</td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
                             </table>
                         </div>
 
-                        <hr class="my-10 border-gray-300">
-                        <h3 class="text-xl font-semibold mb-4">Latest 10 Completed Checks</h3>
-
                         <div class="overflow-x-auto">
-                            <table class="min-w-full border border-gray-300 text-sm text-left">
-                                <thead class="bg-gray-100 text-gray-900">
+                            <table class="w-full border border-gray-300 text-sm text-left">
+                                <thead class="bg-blue-50 text-blue-900">
                                     <tr>
-                                        <th class="border border-gray-300 px-4 py-2">Start Time</th>
-                                        <th class="border border-gray-300 px-4 py-2">Status</th>
+                                        <th class="border border-gray-300 px-4 py-2">ID</th>
                                         <th class="border border-gray-300 px-4 py-2">Host</th>
-                                        <th class="border border-gray-300 px-4 py-2">Total Scans</th>
-                                        <th class="border border-gray-300 px-4 py-2">Successful Scans</th>
-                                        <th class="border border-gray-300 px-4 py-2">Failed Scans</th>
-                                        <th class="border border-gray-300 px-4 py-2">Last Scan Time</th>
+                                        <th class="border border-gray-300 px-4 py-2">Status</th>
                                         <th class="border border-gray-300 px-4 py-2">Details</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {% for row in completed_scans %}
-                                    <tr class="border border-gray-300 {% if loop.index is even %} bg-gray-50 {% endif %}">
-                                        <td class="px-4 py-2 text-gray-500">{{ row[0] }}</td>
-                                        <td class="px-4 py-2">{{ row[1] }}</td>
-                                        <td class="px-4 py-2 font-medium">{{ row[2] }}</td>
-                                        <td class="px-4 py-2">{{ row[3] }}</td>
-                                        <td class="px-4 py-2">{{ row[4] }}</td>
-                                        <td class="px-4 py-2">{{ row[5] }}</td>
-                                        <td class="px-4 py-2">{{ row[6] }}</td>
-                                        <td class="px-4 py-2">{{ row[7] }}</td>
+                                    {% for entry in results %}
+                                    <tr class="border border-gray-300">
+                                        <td class="px-4 py-2 font-semibold">{{ entry.unique_id }}</td>
+                                        <td class="px-4 py-2">{{ entry.host }}</td>
+                                        <td class="px-4 py-2">
+                                            {% if entry.status == "Up" %}
+                                                <span class="inline-flex px-2 py-1 rounded-full bg-green-100 text-green-800 font-semibold">Up</span>
+                                            {% else %}
+                                                <span class="inline-flex px-2 py-1 rounded-full bg-red-100 text-red-800 font-semibold">Down</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="px-4 py-2 text-gray-600">{{ entry.details }}</td>
                                     </tr>
                                     {% endfor %}
                                 </tbody>
@@ -157,11 +126,33 @@ class Reports:
                     </div>
                 </div>
             </main>
+
+            <footer class="bg-gray-900 text-gray-400 py-6 text-center">
+                <p class="text-sm">Check-It &copy; <span id="currentYear"></span> - Open Source Uptime Monitoring</p>
+            </footer>
+
+            <script>
+                document.getElementById('currentYear').textContent = new Date().getFullYear();
+            </script>
         </body>
         </html>
         """
         template = Template(HTML_TEMPLATE)
-        html_content = template.render(now=now, active_scans=active_scans, completed_scans=completed_scans)
-        
-        with open(self.output_path, "w", encoding="utf-8") as f:
-            f.write(html_content)
+        html_content = template.render(
+            results=results,
+            total_checks=total_checks,
+            successful_checks=successful_checks,
+            failed_checks=failed_checks,
+            progress=progress,
+            display_time=display_time
+        )
+
+        report_filename = "../report.html"
+        try:
+            with open(report_filename, "w", encoding="utf-8") as f:
+                f.write(html_content)
+            logging.info("Report generated successfully as %s", report_filename)
+        except Exception as e:
+            logging.error("Failed to write report file %s: %s", report_filename, e)
+
+        return report_filename
