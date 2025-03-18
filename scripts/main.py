@@ -15,16 +15,17 @@ if __name__ == "__main__":
     logging.basicConfig(level=log_level, format="%(levelname)s: %(message)s")
     
     logging.info("Starting monitoring sequence...")
+    
     # 1. Run monitoring checks
     monitor = Monitoring(debug=args.debug)
     results = monitor.run()
     
-    # 2. Generate HTML report from results
+    # 2. Generate HTML report from database (DO NOT PASS `results`)
     report_gen = Reports(debug=args.debug)
-    report_file, summary = report_gen.generate(results)
-    
+    report_file = report_gen.generate()  # FIXED: No parameters passed
+
     # 3. Update index page with the new report info
     index_page = Index(debug=args.debug)
-    index_page.update(report_file, summary)
+    index_page.update(report_file, {})  # Passing an empty dictionary for summary
     
     logging.info("Monitoring sequence completed.")
