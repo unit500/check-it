@@ -2,28 +2,41 @@ from datetime import datetime
 from jinja2 import Template
 import logging
 import os
+import sqlite3
 
 class Reports:
     def __init__(self, debug=False):
         self.debug = debug
-        # Get the absolute path of the directory where this script is located
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        # Ensure the report is generated inside the correct directory
         self.report_filename = os.path.join(script_dir, "..", "report.html")
+        self.db_path = os.path.join(script_dir, "..", "data", "data.db")
 
-    def generate(self, results):
+    def fetch_latest_results(self):
+        """Retrieve the latest results from the database."""
+        results = []
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute("SELECT domain, status, details FROM scans WHERE finished = 0")
+            rows = cursor.fetchall()
+            results = [{"host": row[0], "status": row[1], "details": row[2]} for row in rows]
+            conn.close()
+        except Exception as e:
+            logging.error("Failed to fetch latest results: %s", e)
+        return results
+
+    def generate(self):
         """
-        Generate an HTML report using the provided monitoring results.
-        The report is always saved as 'report.html' (so users can reliably access it).
-        Returns a tuple (report_filename, summary) for use by the Index class.
+        Generate an HTML report using the monitoring results.
         """
+        results = self.fetch_latest_results()
         total = len(results)
         up_count = sum(1 for r in results if r["status"] == "Up")
         down_count = total - up_count
         now = datetime.now()
         display_time = now.strftime("%Y-%m-%d %H:%M:%S")
 
-        # Build the HTML content using a Jinja2 template.
+        # Updated HTML template to include "Details" column
         HTML_TEMPLATE = """
         <!DOCTYPE html>
         <html lang="en">
@@ -53,6 +66,7 @@ class Reports:
                     <tr>
                         <th>Host</th>
                         <th>Status</th>
+                        <th>Details</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -60,6 +74,7 @@ class Reports:
                     <tr>
                         <td>{{ entry.host }}</td>
                         <td class="{{ 'status-up' if entry.status == 'Up' else 'status-down' }}">{{ entry.status }}</td>
+                        <td>{{ entry.details }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -73,14 +88,8 @@ class Reports:
         try:
             with open(self.report_filename, "w", encoding="utf-8") as f:
                 f.write(html_content)
-            logging.info("Report generated successfully as %s (Up: %d, Down: %d)", self.report_filename, up_count, down_count)
+            logging.info("Report generated successfully: %s", self.report_filename)
         except Exception as e:
-            logging.error("Failed to write report file %s: %s", self.report_filename, e)
+            logging.error("Failed to write report file: %s", e)
 
-        summary = {
-            "display_time": display_time,
-            "total": total,
-            "up": up_count,
-            "down": down_count
-        }
-        return self.report_filename, summary
+        return self.report_filename
