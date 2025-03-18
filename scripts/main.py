@@ -1,7 +1,7 @@
 import argparse
 import logging
 from monitoring import Monitoring
-from reports_module import Reports  # Ensure the correct module name
+from reports_module import Reports  # Ensure correct module name
 from index import Index
 
 if __name__ == "__main__":
@@ -18,11 +18,11 @@ if __name__ == "__main__":
     
     # Run monitoring checks
     monitor = Monitoring(debug=args.debug)
-    results = monitor.run()  # Fetch results
-    
-    # Generate HTML report from results
+    results = monitor.run()  # Fetch monitoring results
+
+    # Generate HTML report (No parameters needed)
     report_gen = Reports(debug=args.debug)
-    report_file = report_gen.generate(results)  # FIXED: Passing 'results' correctly
+    report_file = report_gen.generate()  # ✅ FIXED: No argument needed
 
     # Update index page with the new report info
     index_page = Index(debug=args.debug)
