@@ -8,12 +8,12 @@ from datetime import datetime, timedelta
 
 class Monitoring:
     def __init__(self, db_path=None, archive_path=None, hosts=None, debug=False):
-        """Initialize the monitoring class, setting up database path and archive path."""
+        """Initialize the monitoring class, setting up database path, archive path, and logging."""
         self.debug = debug
         script_dir = os.path.dirname(os.path.abspath(__file__))
         self.db_path = db_path if db_path else os.path.join(script_dir, "..", "data", "data.db")
         self.archive_path = archive_path if archive_path else os.path.join(script_dir, "..", "data", "archive.db")
-        
+
         if hosts is not None:
             self.hosts = hosts
         else:
@@ -34,14 +34,16 @@ class Monitoring:
                 if duration and start_time:
                     start_time_dt = datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S")
                     time_limit = start_time_dt + timedelta(hours=duration)
-                    
+
                     if now < time_limit:
                         hosts.append(domain)  # Scan if within allowed duration
                     else:
+                        logging.info("Marking scan as finished for %s: exceeded %d hours.", domain, duration)
                         self.mark_scan_finished(domain)  # Move to archive if expired
                 else:
+                    logging.warning("Missing duration or start time for %s. Using default behavior.", domain)
                     hosts.append(domain)  # Default behavior if no duration set
-            
+
             conn.close()
             logging.debug("Loaded active hosts from DB: %s", hosts)
         except Exception as e:
@@ -62,7 +64,8 @@ class Monitoring:
     def check_host(self, host, port=80):
         """Check if a host is reachable via ping and TCP connection."""
         logging.debug("Checking host: %s on port %d", host, port)
-        
+
+        # Step 1: Ping the host
         ping_status = "Ping failed"
         try:
             cmd = ["ping", "-c", "1", "-W", "2", host] if platform.system().lower() != 'windows' else ["ping", "-n", "1", "-w", "2000", host]
@@ -71,7 +74,8 @@ class Monitoring:
                 ping_status = "Ping successful"
         except Exception as e:
             logging.error("Ping error for %s: %s", host, e)
-        
+
+        # Step 2: Attempt a TCP connection
         connection_status = "Connection failed"
         try:
             with socket.create_connection((host, port), timeout=3):
@@ -82,7 +86,7 @@ class Monitoring:
 
         status = "Up" if "successful" in connection_status else "Down"
         details = f"{ping_status}, {connection_status}"
-        
+
         return status, details
 
     def update_host_status(self, host, status, details):
@@ -129,34 +133,28 @@ class Monitoring:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
 
-            cursor.execute("SELECT * FROM scans WHERE domain = ?", (host,))
+            # Get column names dynamically
+            cursor.execute("PRAGMA table_info(scans);")
+            columns = [row[1] for row in cursor.fetchall()]  # Extract column names
+            column_names = ", ".join(columns)
+            placeholders = ", ".join(["?" for _ in columns])  # Create placeholders dynamically
+
+            # Fetch row data
+            cursor.execute(f"SELECT {column_names} FROM scans WHERE domain = ?", (host,))
             row = cursor.fetchone()
 
             if row:
-                # Insert into archive database
+                logging.info("Archiving scan for %s", host)
+
+                # Connect to archive database
                 archive_conn = sqlite3.connect(self.archive_path)
                 archive_cursor = archive_conn.cursor()
 
-                archive_cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS scans (
-                        domain TEXT PRIMARY KEY,
-                        status TEXT,
-                        details TEXT,
-                        start_time TEXT,
-                        last_scan_time TEXT,
-                        total_scans INTEGER,
-                        successful_scans INTEGER,
-                        failed_scans INTEGER,
-                        duration INTEGER,
-                        finished INTEGER
-                    )
-                """)
+                # Ensure the archive table exists
+                archive_cursor.execute(f"CREATE TABLE IF NOT EXISTS scans ({column_names})")
 
-                archive_cursor.execute("""
-                    INSERT INTO scans 
-                    (domain, status, details, start_time, last_scan_time, total_scans, successful_scans, failed_scans, duration, finished)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, row)
+                # Insert dynamically into archive database
+                archive_cursor.execute(f"INSERT INTO scans ({column_names}) VALUES ({placeholders})", row)
 
                 archive_conn.commit()
                 archive_conn.close()
