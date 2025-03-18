@@ -1,9 +1,8 @@
 import argparse
 import logging
 from monitoring import Monitoring
-from reports import Reports
+from reports_module import Reports
 from index import Index
-
 if __name__ == "__main__":
     # Parse command-line arguments
     parser = argparse.ArgumentParser(description="Monitor remote computers and generate HTML reports.")
