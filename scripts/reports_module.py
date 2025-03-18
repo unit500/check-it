@@ -13,12 +13,17 @@ class Reports:
         self.db_path = os.path.join(script_dir, "..", "data", "data.db")
 
     def fetch_latest_results(self):
-        """Retrieve the latest results from the database, including timestamps."""
+        """Retrieve the latest results from the database, including scan statistics."""
         results = []
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-            cursor.execute("SELECT domain, status, details, start_time, last_scan_time FROM scans WHERE finished = 0")
+            cursor.execute("""
+                SELECT 
+                    domain, status, details, start_time, last_scan_time,
+                    total_scans, successful_scans, failed_scans
+                FROM scans WHERE finished = 0
+            """)
             rows = cursor.fetchall()
             results = [
                 {
@@ -27,6 +32,9 @@ class Reports:
                     "details": row[2] if row[2] else "No details available",
                     "start_time": row[3] if row[3] else "N/A",
                     "last_scan_time": row[4] if row[4] else "N/A",
+                    "total_scans": row[5] if row[5] else 0,
+                    "successful_scans": row[6] if row[6] else 0,
+                    "failed_scans": row[7] if row[7] else 0,
                 }
                 for row in rows
             ]
@@ -46,7 +54,7 @@ class Reports:
         now = datetime.now()
         display_time = now.strftime("%Y-%m-%d %H:%M:%S")
 
-        # Updated HTML template with Tailwind CSS
+        # Updated HTML template with new columns for scan statistics
         HTML_TEMPLATE = """
         <!DOCTYPE html>
         <html lang="en">
@@ -92,17 +100,20 @@ class Reports:
                             <table class="min-w-full border border-gray-300 text-sm text-left">
                                 <thead class="bg-blue-50 text-blue-900">
                                     <tr>
-                                        <th class="border border-gray-300 px-4 py-2">Host</th>
-                                        <th class="border border-gray-300 px-4 py-2">Status</th>
-                                        <th class="border border-gray-300 px-4 py-2">Details</th>
                                         <th class="border border-gray-300 px-4 py-2">Start Time</th>
+                                        <th class="border border-gray-300 px-4 py-2">Status</th>
+                                        <th class="border border-gray-300 px-4 py-2">Host</th>
+                                        <th class="border border-gray-300 px-4 py-2">Total Scans</th>
+                                        <th class="border border-gray-300 px-4 py-2">Successful Scans</th>
+                                        <th class="border border-gray-300 px-4 py-2">Failed Scans</th>
                                         <th class="border border-gray-300 px-4 py-2">Last Scan Time</th>
+                                        <th class="border border-gray-300 px-4 py-2">Details</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {% for entry in results %}
                                     <tr class="border border-gray-300 {% if loop.index is even %} bg-gray-50 {% endif %}">
-                                        <td class="px-4 py-2 font-medium">{{ entry.host }}</td>
+                                        <td class="px-4 py-2 text-gray-500">{{ entry.start_time }}</td>
                                         <td class="px-4 py-2">
                                             {% if entry.status == "Up" %}
                                                 <span class="inline-flex px-2 py-1 rounded-full bg-green-100 text-green-800 font-semibold">Up</span>
@@ -110,9 +121,12 @@ class Reports:
                                                 <span class="inline-flex px-2 py-1 rounded-full bg-red-100 text-red-800 font-semibold">Down</span>
                                             {% endif %}
                                         </td>
-                                        <td class="px-4 py-2 text-gray-600">{{ entry.details }}</td>
-                                        <td class="px-4 py-2 text-gray-500">{{ entry.start_time }}</td>
+                                        <td class="px-4 py-2 font-medium">{{ entry.host }}</td>
+                                        <td class="px-4 py-2 text-gray-600">{{ entry.total_scans }}</td>
+                                        <td class="px-4 py-2 text-green-600">{{ entry.successful_scans }}</td>
+                                        <td class="px-4 py-2 text-red-600">{{ entry.failed_scans }}</td>
                                         <td class="px-4 py-2 text-gray-500">{{ entry.last_scan_time }}</td>
+                                        <td class="px-4 py-2 text-gray-600">{{ entry.details }}</td>
                                     </tr>
                                     {% endfor %}
                                 </tbody>
@@ -121,14 +135,13 @@ class Reports:
                     </div>
                 </div>
             </main>
-            
+
             <!-- Footer -->
             <footer class="bg-gray-900 text-gray-400 py-6 text-center">
                 <p class="text-sm">Check-It &copy; <span id="currentYear"></span> - Open Source Uptime Monitoring</p>
             </footer>
 
             <script>
-                // Set current year in footer
                 document.getElementById('currentYear').textContent = new Date().getFullYear();
             </script>
         </body>
