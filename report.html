@@ -26,13 +26,13 @@
                     <div class="max-w-6xl mx-auto bg-white shadow-md rounded-lg p-6">
                         <div class="border-b pb-4 mb-6">
                             <h3 class="text-2xl font-semibold">Monitoring Report</h3>
-                            <p class="text-gray-500 text-sm">Generated on: 2025-03-18 07:23:05</p>
+                            <p class="text-gray-500 text-sm">Generated on: 2025-03-18 07:30:46</p>
                         </div>
 
                         <p class="text-lg font-semibold mb-4">
                             Status: 
                             
-                                <span class="text-red-500">2 out of 4 hosts are DOWN</span>
+                                <span class="text-green-500">All 0 hosts are UP</span>
                             
                         </p>
 
@@ -41,62 +41,17 @@
                             <table class="min-w-full border border-gray-300 text-sm text-left">
                                 <thead class="bg-blue-50 text-blue-900">
                                     <tr>
-                                        <th class="border border-gray-300 px-4 py-2">Host</th>
-                                        <th class="border border-gray-300 px-4 py-2">Status</th>
-                                        <th class="border border-gray-300 px-4 py-2">Details</th>
                                         <th class="border border-gray-300 px-4 py-2">Start Time</th>
+                                        <th class="border border-gray-300 px-4 py-2">Status</th>
+                                        <th class="border border-gray-300 px-4 py-2">Host</th>
+                                        <th class="border border-gray-300 px-4 py-2">Total Scans</th>
+                                        <th class="border border-gray-300 px-4 py-2">Successful Scans</th>
+                                        <th class="border border-gray-300 px-4 py-2">Failed Scans</th>
                                         <th class="border border-gray-300 px-4 py-2">Last Scan Time</th>
+                                        <th class="border border-gray-300 px-4 py-2">Details</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    
-                                    <tr class="border border-gray-300 ">
-                                        <td class="px-4 py-2 font-medium">www.nbc.com</td>
-                                        <td class="px-4 py-2">
-                                            
-                                                <span class="inline-flex px-2 py-1 rounded-full bg-green-100 text-green-800 font-semibold">Up</span>
-                                            
-                                        </td>
-                                        <td class="px-4 py-2 text-gray-600">Ping failed, Connection successful</td>
-                                        <td class="px-4 py-2 text-gray-500">2025-03-16 11:21:20</td>
-                                        <td class="px-4 py-2 text-gray-500">N/A</td>
-                                    </tr>
-                                    
-                                    <tr class="border border-gray-300  bg-gray-50 ">
-                                        <td class="px-4 py-2 font-medium">www.index.com</td>
-                                        <td class="px-4 py-2">
-                                            
-                                                <span class="inline-flex px-2 py-1 rounded-full bg-red-100 text-red-800 font-semibold">Down</span>
-                                            
-                                        </td>
-                                        <td class="px-4 py-2 text-gray-600">Ping failed, Connection error: timed out</td>
-                                        <td class="px-4 py-2 text-gray-500">2025-03-16 14:07:57</td>
-                                        <td class="px-4 py-2 text-gray-500">N/A</td>
-                                    </tr>
-                                    
-                                    <tr class="border border-gray-300 ">
-                                        <td class="px-4 py-2 font-medium">www.example.org</td>
-                                        <td class="px-4 py-2">
-                                            
-                                                <span class="inline-flex px-2 py-1 rounded-full bg-green-100 text-green-800 font-semibold">Up</span>
-                                            
-                                        </td>
-                                        <td class="px-4 py-2 text-gray-600">Ping failed, Connection successful</td>
-                                        <td class="px-4 py-2 text-gray-500">2025-03-17 15:22:42</td>
-                                        <td class="px-4 py-2 text-gray-500">N/A</td>
-                                    </tr>
-                                    
-                                    <tr class="border border-gray-300  bg-gray-50 ">
-                                        <td class="px-4 py-2 font-medium">www.index.com</td>
-                                        <td class="px-4 py-2">
-                                            
-                                                <span class="inline-flex px-2 py-1 rounded-full bg-red-100 text-red-800 font-semibold">Down</span>
-                                            
-                                        </td>
-                                        <td class="px-4 py-2 text-gray-600">Ping failed, Connection error: timed out</td>
-                                        <td class="px-4 py-2 text-gray-500">2025-03-18 06:24:10</td>
-                                        <td class="px-4 py-2 text-gray-500">N/A</td>
-                                    </tr>
                                     
                                 </tbody>
                             </table>
@@ -104,14 +59,13 @@
                     </div>
                 </div>
             </main>
-            
+
             <!-- Footer -->
             <footer class="bg-gray-900 text-gray-400 py-6 text-center">
                 <p class="text-sm">Check-It &copy; <span id="currentYear"></span> - Open Source Uptime Monitoring</p>
             </footer>
 
             <script>
-                // Set current year in footer
                 document.getElementById('currentYear').textContent = new Date().getFullYear();
             </script>
         </body>
