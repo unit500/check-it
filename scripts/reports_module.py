@@ -1,60 +1,80 @@
-import os
-import random
-import string
+import sqlite3
 import logging
-from datetime import datetime, timedelta
+import os
+from datetime import datetime
 from jinja2 import Template
 
 class Reports:
-    def __init__(self, debug=False):
+    def __init__(self, db_path=None, archive_path=None, output_path=None, debug=False):
+        """Initialize the report generation class with database paths."""
         self.debug = debug
-        self.report_filename = os.path.join(os.path.dirname(__file__), "../report.html")
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        self.db_path = db_path if db_path else os.path.join(script_dir, "..", "data", "data.db")
+        self.archive_path = archive_path if archive_path else os.path.join(script_dir, "..", "data", "archive.db")
+        self.output_path = output_path if output_path else os.path.join(script_dir, "..", "report.html")
 
-    def generate(self, results):
-        """
-        Generate an HTML report using the provided monitoring results.
-        Returns the report filename.
-        """
-        total_checks = len(results)
-        successful_checks = sum(1 for r in results if r["status"] == "Up")
-        failed_checks = total_checks - successful_checks
-        now = datetime.now()
-        display_time = now.strftime("%Y-%m-%d %H:%M:%S")
+    def fetch_latest_results(self):
+        """Fetch latest active scan results from data.db."""
+        results = []
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT start_time, status, domain, total_scans, successful_scans, failed_scans, last_scan_time, details, duration 
+                FROM scans
+                WHERE finished = 0
+                ORDER BY last_scan_time DESC
+            """)
+            results = cursor.fetchall()
+            conn.close()
+        except Exception as e:
+            logging.error("Failed to fetch latest results: %s", e)
+        return results
 
-        def generate_missing_id():
-            """Generate an ID if unique_id is missing (XXX9999XXX11 format)."""
-            letters = string.ascii_lowercase
-            numbers = string.digits
-            return (
-                ''.join(random.choices(letters, k=3)) +
-                ''.join(random.choices(numbers, k=4)) +
-                ''.join(random.choices(letters, k=3)) +
-                ''.join(random.choices(numbers, k=2))
-            )
+    def fetch_latest_completed_scans(self):
+        """Fetch latest 10 completed scans from archive.db."""
+        results = []
+        try:
+            conn = sqlite3.connect(self.archive_path)
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT start_time, status, domain, total_scans, successful_scans, failed_scans, last_scan_time, details, duration 
+                FROM scans
+                ORDER BY last_scan_time DESC
+                LIMIT 10
+            """)
+            results = cursor.fetchall()
+            conn.close()
+        except Exception as e:
+            logging.error("Failed to fetch latest completed scans: %s", e)
+        return results
 
-        # Ensure all records have necessary fields
-        for entry in results:
-            if "unique_id" not in entry or not entry["unique_id"]:
-                entry["unique_id"] = generate_missing_id()
+    def calculate_progress(self, start_time, duration):
+        """Calculate progress as a percentage based on start time and duration."""
+        try:
+            start_dt = datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S")
+            now = datetime.now()
+            elapsed_time = (now - start_dt).total_seconds() / 3600  # Convert to hours
+            progress = min(round((elapsed_time / duration) * 100, 2), 100) if duration > 0 else 100
+            return f"{progress}%"
+        except Exception:
+            return "N/A"
 
-            # Ensure `start_time` exists; if missing, set to now
-            if "start_time" not in entry or not entry["start_time"]:
-                entry["start_time"] = display_time  # Set current time if missing
+    def generate(self):
+        """Generate an HTML report for active scans and latest completed scans."""
+        active_scans = self.fetch_latest_results()
+        completed_scans = self.fetch_latest_completed_scans()
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-            # Ensure `duration` exists; default to 1 hour
-            duration_hours = entry.get("duration", 1)
+        # Add progress calculation to each scan entry
+        active_scans_with_progress = [
+            list(row) + [self.calculate_progress(row[0], row[8])] for row in active_scans
+        ]
+        completed_scans_with_progress = [
+            list(row) + [self.calculate_progress(row[0], row[8])] for row in completed_scans
+        ]
 
-            # Calculate progress
-            try:
-                start_time = datetime.strptime(entry["start_time"], "%Y-%m-%d %H:%M:%S")
-                elapsed_time = (now - start_time).total_seconds() / 3600  # Convert to hours
-                progress = min(round((elapsed_time / duration_hours) * 100, 2), 100) if duration_hours > 0 else 100
-            except ValueError:
-                progress = 100  # If start_time is in an unknown format, assume 100%
-
-            entry["progress"] = f"{progress}%"  # Store progress as a string with %
-
-        # HTML Report Template
+        # HTML Template with Tailwind CSS
         HTML_TEMPLATE = """
         <!DOCTYPE html>
         <html lang="en">
@@ -68,7 +88,7 @@ class Reports:
             <header class="w-full bg-gradient-to-r from-blue-900 to-blue-700 text-white shadow-lg">
                 <div class="container mx-auto py-6 px-4 text-center">
                     <h1 class="text-3xl font-bold tracking-tight">Check-It Uptime Monitoring</h1>
-                    <p class="text-lg mt-2">Real-time server monitoring with detailed status reports.</p>
+                    <p class="text-monitor-100 text-lg mt-2">Real-time server monitoring with detailed status reports.</p>
                 </div>
             </header>
 
@@ -77,38 +97,65 @@ class Reports:
                     <div class="max-w-6xl mx-auto bg-white shadow-md rounded-lg p-6">
                         <div class="border-b pb-4 mb-6">
                             <h3 class="text-2xl font-semibold">Monitoring Report</h3>
-                            <p class="text-gray-500 text-sm">Generated on: {{ display_time }}</p>
+                            <p class="text-gray-500 text-sm">Generated on: {{ now }}</p>
                         </div>
 
                         <p class="text-lg font-semibold mb-4">
-                            Status: <span class="text-blue-500">Currently monitoring {{ total_checks }} addresses</span>
+                            Status: 
+                            {% if active_scans_with_progress %}
+                                <span class="text-red-500">
+                                    {{ active_scans_with_progress | selectattr('1', 'equalto', 'Down') | list | length }} out of {{ active_scans_with_progress | length }} hosts are DOWN
+                                </span>
+                            {% else %}
+                                <span class="text-green-500">No active scans</span>
+                            {% endif %}
                         </p>
 
                         <div class="overflow-x-auto">
-                            <table class="w-full border border-gray-300 text-sm text-left">
+                            <table class="min-w-full border border-gray-300 text-sm text-left">
                                 <thead class="bg-blue-50 text-blue-900">
                                     <tr>
-                                        <th class="border border-gray-300 px-4 py-2">ID</th>
-                                        <th class="border border-gray-300 px-4 py-2">Host</th>
+                                        <th class="border border-gray-300 px-4 py-2">Start Time</th>
                                         <th class="border border-gray-300 px-4 py-2">Status</th>
+                                        <th class="border border-gray-300 px-4 py-2">Host</th>
                                         <th class="border border-gray-300 px-4 py-2">Progress</th>
+                                        <th class="border border-gray-300 px-4 py-2">Total Scans</th>
+                                        <th class="border border-gray-300 px-4 py-2">Successful Scans</th>
+                                        <th class="border border-gray-300 px-4 py-2">Failed Scans</th>
+                                        <th class="border border-gray-300 px-4 py-2">Last Scan Time</th>
                                         <th class="border border-gray-300 px-4 py-2">Details</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {% for entry in results %}
-                                    <tr class="border border-gray-300">
-                                        <td class="px-4 py-2 font-semibold">{{ entry.unique_id }}</td>
-                                        <td class="px-4 py-2">{{ entry.host }}</td>
-                                        <td class="px-4 py-2">
-                                            {% if entry.status == "Up" %}
-                                                <span class="inline-flex px-2 py-1 rounded-full bg-green-100 text-green-800 font-semibold">Up</span>
-                                            {% else %}
-                                                <span class="inline-flex px-2 py-1 rounded-full bg-red-100 text-red-800 font-semibold">Down</span>
-                                            {% endif %}
-                                        </td>
-                                        <td class="px-4 py-2 font-semibold text-blue-700">{{ entry.progress }}</td>
-                                        <td class="px-4 py-2 text-gray-600">{{ entry.details }}</td>
+                                    {% for row in active_scans_with_progress %}
+                                    <tr class="border border-gray-300 {% if loop.index is even %} bg-gray-50 {% endif %}">
+                                        <td class="px-4 py-2 text-gray-500">{{ row[0] }}</td>
+                                        <td class="px-4 py-2 {% if row[1] == 'Up' %} text-green-600 {% else %} text-red-600 {% endif %}">{{ row[1] }}</td>
+                                        <td class="px-4 py-2 font-medium">{{ row[2] }}</td>
+                                        <td class="px-4 py-2 text-blue-600 font-semibold">{{ row[9] }}</td>
+                                        <td class="px-4 py-2">{{ row[3] }}</td>
+                                        <td class="px-4 py-2">{{ row[4] }}</td>
+                                        <td class="px-4 py-2">{{ row[5] }}</td>
+                                        <td class="px-4 py-2 text-gray-500">{{ row[6] }}</td>
+                                        <td class="px-4 py-2 text-gray-600">{{ row[7] }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <hr class="my-10 border-gray-300">
+                        <h3 class="text-xl font-semibold mb-4">Latest 10 Completed Checks</h3>
+
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full border border-gray-300 text-sm text-left">
+                                <tbody>
+                                    {% for row in completed_scans_with_progress %}
+                                    <tr class="border border-gray-300 {% if loop.index is even %} bg-gray-50 {% endif %}">
+                                        <td class="px-4 py-2 text-gray-500">{{ row[0] }}</td>
+                                        <td class="px-4 py-2">{{ row[1] }}</td>
+                                        <td class="px-4 py-2 font-medium">{{ row[2] }}</td>
+                                        <td class="px-4 py-2 text-blue-600 font-semibold">{{ row[9] }}</td>
                                     </tr>
                                     {% endfor %}
                                 </tbody>
@@ -117,31 +164,11 @@ class Reports:
                     </div>
                 </div>
             </main>
-
-            <footer class="bg-gray-900 text-gray-400 py-6 text-center">
-                <p class="text-sm">Check-It &copy; <span id="currentYear"></span> - Open Source Uptime Monitoring</p>
-            </footer>
-
-            <script>
-                document.getElementById('currentYear').textContent = new Date().getFullYear();
-            </script>
         </body>
         </html>
         """
         template = Template(HTML_TEMPLATE)
-        html_content = template.render(
-            results=results,
-            total_checks=total_checks,
-            successful_checks=successful_checks,
-            failed_checks=failed_checks,
-            display_time=display_time
-        )
+        html_content = template.render(now=now, active_scans_with_progress=active_scans_with_progress, completed_scans_with_progress=completed_scans_with_progress)
 
-        try:
-            with open(self.report_filename, "w", encoding="utf-8") as f:
-                f.write(html_content)
-            logging.info("Report generated successfully: %s", self.report_filename)
-        except Exception as e:
-            logging.error("Failed to write report file %s: %s", self.report_filename, e)
-
-        return self.report_filename
+        with open(self.output_path, "w", encoding="utf-8") as f:
+            f.write(html_content)
