@@ -160,9 +160,9 @@ class Monitoring:
                 archive_conn.close()
 
                 # Remove from active database
-                cursor.execute("DELETE FROM scans WHERE domain = ?", (host,))
-                conn.commit()
-                conn.close()
+                #cursor.execute("DELETE FROM scans WHERE domain = ?", (host,))
+                #conn.commit()
+                #conn.close()
 
                 logging.info("Moved scan for %s to archive and marked as finished.", host)
 
