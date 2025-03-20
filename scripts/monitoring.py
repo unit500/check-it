@@ -77,9 +77,8 @@ class Monitoring:
             # --- Begin Check-Host Integration ---
             local_scan_id = checkhost_client.initiate_scan(host)
             if local_scan_id:
-                # (Optional) Update your original scans record with the checkhost local_scan_id.
-                # For example, if you add a column 'checkhost_id' to your scans table:
-                # self.update_checkhost_reference(host, local_scan_id)
+                # Update the scans table in data.db with the checkhost linking ID
+                self.update_checkhost_reference(host, local_scan_id)
                 # Retrieve the result (in a real scenario you might wait a few seconds before polling)
                 result_data = checkhost_client.get_scan_result(local_scan_id)
                 if result_data:
@@ -90,6 +89,19 @@ class Monitoring:
         # After processing all hosts, upload the checkhost database to GitHub.
         self.upload_to_github(self.checkhost_path, "Update checkhost.db after monitoring")
         return results
+
+    def update_checkhost_reference(self, host, local_scan_id):
+        """Update the scans record in data.db with the checkhost linking ID."""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            # Ensure that your scans table has a column named checkhost_id.
+            cursor.execute("UPDATE scans SET checkhost_id = ? WHERE domain = ?", (local_scan_id, host))
+            conn.commit()
+            conn.close()
+            logging.info("Updated checkhost_id for %s with local_scan_id %s", host, local_scan_id)
+        except Exception as e:
+            logging.error("Failed to update checkhost reference for %s: %s", host, e)
 
     def check_host(self, host, port=80):
         """Check if a host is reachable via ping and TCP connection."""
