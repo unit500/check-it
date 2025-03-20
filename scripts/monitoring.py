@@ -4,7 +4,15 @@ import platform
 import socket
 import logging
 import os
+import base64
+import requests
 from datetime import datetime, timedelta
+
+# GitHub Configuration
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+REPO_OWNER = "unit500"
+REPO_NAME = "check-it"
+ARCHIVE_DB_PATH = "data/archive.db"
 
 class Monitoring:
     def __init__(self, db_path=None, archive_path=None, hosts=None, debug=False):
@@ -12,7 +20,7 @@ class Monitoring:
         self.debug = debug
         script_dir = os.path.dirname(os.path.abspath(__file__))
         self.db_path = db_path if db_path else os.path.join(script_dir, "..", "data", "data.db")
-        self.archive_path = archive_path if archive_path else os.path.join(script_dir, "..", "data", "archive.db")
+        self.archive_path = archive_path if archive_path else os.path.join(script_dir, "..", ARCHIVE_DB_PATH)
 
         if hosts is not None:
             self.hosts = hosts
@@ -133,42 +141,35 @@ class Monitoring:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
 
-            # Get column names dynamically
             cursor.execute("PRAGMA table_info(scans);")
             columns = [row[1] for row in cursor.fetchall()]
             column_names = ", ".join(columns)
             placeholders = ", ".join(["?" for _ in columns])
 
-            # Fetch row data
             cursor.execute(f"SELECT {column_names} FROM scans WHERE domain = ?", (host,))
             row = cursor.fetchone()
 
             if row:
                 logging.info(f"Preparing to archive scan for {host}")
 
-                # Ensure correct path
                 archive_abs_path = os.path.abspath(self.archive_path)
                 logging.info(f"Archive DB path: {archive_abs_path}")
 
                 archive_conn = sqlite3.connect(archive_abs_path)
                 archive_cursor = archive_conn.cursor()
 
-                # Ensure the archive table exists
                 archive_cursor.execute(f"CREATE TABLE IF NOT EXISTS scans ({column_names})")
                 archive_cursor.execute(f"INSERT INTO scans ({column_names}) VALUES ({placeholders})", row)
 
                 archive_conn.commit()
-                archive_conn.execute("PRAGMA wal_checkpoint(FULL);")  # Ensure writes are flushed
                 archive_conn.close()
                 logging.info(f"✅ Successfully moved {host} to archive.db")
 
-                # Ensure SQLite flushes writes to disk
-                cursor.execute("PRAGMA wal_checkpoint(FULL);")
+                conn.execute("DELETE FROM scans WHERE domain = ?", (host,))
                 conn.commit()
                 conn.close()
-                logging.info(f"✅ Changes fully written to disk for {host}.")
+                logging.info(f"✅ Scan for {host} deleted from active scans.")
 
-                # Push archive.db to GitHub
                 self.upload_to_github(self.archive_path, "Update archive.db after monitoring")
 
             else:
@@ -176,3 +177,23 @@ class Monitoring:
 
         except Exception as e:
             logging.error(f"❌ Failed to move scan to archive for {host}: {e}")
+
+    def upload_to_github(self, file_path, commit_message):
+        """Uploads a file to GitHub using the API."""
+        if not GITHUB_TOKEN:
+            logging.error("GitHub token is missing. Cannot upload.")
+            return
+
+        url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{ARCHIVE_DB_PATH}"
+        headers = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
+        
+        with open(file_path, "rb") as f:
+            content = base64.b64encode(f.read()).decode()
+
+        data = {"message": commit_message, "content": content, "branch": "main"}
+        response = requests.put(url, json=data, headers=headers)
+
+        if response.status_code == 201 or response.status_code == 200:
+            logging.info("✅ GitHub Commit Successful: archive.db updated.")
+        else:
+            logging.error(f"❌ GitHub Commit Failed: {response.text}")
