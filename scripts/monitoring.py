@@ -146,7 +146,8 @@ class Monitoring:
     def mark_scan_finished(self, host):
         """Move finished scans to archive.db and remove them from data.db."""
         try:
-            conn = sqlite3.connect(self.db_path)
+            # Increase timeout to help prevent "database is locked" errors
+            conn = sqlite3.connect(self.db_path, timeout=30)
             cursor = conn.cursor()
             cursor.execute("PRAGMA table_info(scans);")
             columns = [row[1] for row in cursor.fetchall()]
@@ -158,14 +159,16 @@ class Monitoring:
                 logging.info(f"Preparing to archive scan for {host}")
                 archive_abs_path = os.path.abspath(self.archive_path)
                 logging.info(f"Archive DB path: {archive_abs_path}")
-                archive_conn = sqlite3.connect(archive_abs_path)
+                archive_conn = sqlite3.connect(archive_abs_path, timeout=30)
                 archive_cursor = archive_conn.cursor()
+                # Create table if it does not exist
                 archive_cursor.execute(f"CREATE TABLE IF NOT EXISTS scans ({column_names})")
-                archive_cursor.execute(f"INSERT INTO scans ({column_names}) VALUES ({placeholders})", row)
+                # Use INSERT OR REPLACE to handle duplicates (avoids UNIQUE constraint errors)
+                archive_cursor.execute(f"INSERT OR REPLACE INTO scans ({column_names}) VALUES ({placeholders})", row)
                 archive_conn.commit()
                 archive_conn.close()
                 logging.info(f"✅ Successfully moved {host} to archive.db")
-                conn.execute("DELETE FROM scans WHERE domain = ?", (host,))
+                cursor.execute("DELETE FROM scans WHERE domain = ?", (host,))
                 conn.commit()
                 conn.close()
                 logging.info(f"✅ Scan for {host} deleted from active scans.")
