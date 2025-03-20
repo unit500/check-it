@@ -132,39 +132,61 @@ class Monitoring:
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-
+    
             # Get column names dynamically
             cursor.execute("PRAGMA table_info(scans);")
             columns = [row[1] for row in cursor.fetchall()]  # Extract column names
             column_names = ", ".join(columns)
             placeholders = ", ".join(["?" for _ in columns])  # Create placeholders dynamically
-
+    
             # Fetch row data
             cursor.execute(f"SELECT {column_names} FROM scans WHERE domain = ?", (host,))
             row = cursor.fetchone()
-
+    
             if row:
-                logging.info("Archiving scan for %s", host)
-
+                logging.info("Preparing to archive scan for %s", host)
+    
                 # Connect to archive database
                 archive_conn = sqlite3.connect(self.archive_path)
                 archive_cursor = archive_conn.cursor()
-
-                # Ensure the archive table exists
-                archive_cursor.execute(f"CREATE TABLE IF NOT EXISTS scans ({column_names})")
-
-                # Insert dynamically into archive database
-                archive_cursor.execute(f"INSERT INTO scans ({column_names}) VALUES ({placeholders})", row)
-
-                archive_conn.commit()
+    
+                # Ensure the archive table exists and matches the structure of data.db
+                archive_cursor.execute(f"""
+                    CREATE TABLE IF NOT EXISTS scans (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        domain TEXT,
+                        protocol TEXT,
+                        duration INTEGER,
+                        finished INTEGER DEFAULT 0,
+                        successful_runs INTEGER DEFAULT 0,
+                        failed_runs INTEGER DEFAULT 0,
+                        start_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        last_scan_time TIMESTAMP,
+                        status TEXT DEFAULT 'Unknown',
+                        details TEXT DEFAULT '',
+                        total_scans INTEGER DEFAULT 0,
+                        successful_scans INTEGER DEFAULT 0,
+                        failed_scans INTEGER DEFAULT 0,
+                        unique_id TEXT,
+                        original_url TEXT
+                    )
+                """)
+    
+                logging.info("Archive table ensured in %s", self.archive_path)
+                logging.info("Row data for archive: %s", row)
+    
+                try:
+                    archive_cursor.execute(f"INSERT INTO scans ({column_names}) VALUES ({placeholders})", row)
+                    archive_conn.commit()
+                    logging.info("Successfully moved %s to archive.db", host)
+                except Exception as e:
+                    logging.error("Insert into archive.db failed for %s: %s", host, e)
+    
                 archive_conn.close()
-
-                # Remove from active database
-                #cursor.execute("DELETE FROM scans WHERE domain = ?", (host,))
-                #conn.commit()
-                #conn.close()
-
-                logging.info("Moved scan for %s to archive and marked as finished.", host)
-
+            else:
+                logging.warning("No scan found for %s to archive.", host)
+    
+            conn.close()
+    
         except Exception as e:
             logging.error("Failed to move scan to archive for %s: %s", host, e)
