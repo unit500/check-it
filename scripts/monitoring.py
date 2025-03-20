@@ -132,67 +132,47 @@ class Monitoring:
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-    
+
             # Get column names dynamically
             cursor.execute("PRAGMA table_info(scans);")
-            columns = [row[1] for row in cursor.fetchall()]  # Extract column names
+            columns = [row[1] for row in cursor.fetchall()]
             column_names = ", ".join(columns)
-            placeholders = ", ".join(["?" for _ in columns])  # Create placeholders dynamically
-    
+            placeholders = ", ".join(["?" for _ in columns])
+
             # Fetch row data
             cursor.execute(f"SELECT {column_names} FROM scans WHERE domain = ?", (host,))
             row = cursor.fetchone()
-    
+
             if row:
                 logging.info(f"Preparing to archive scan for {host}")
-                logging.info(f"Archive DB path: {self.archive_path}")
-                logging.info(f"Current working directory: {os.getcwd()}")
-    
-                # Ensure correct path in GitHub Actions
+
+                # Ensure correct path
                 archive_abs_path = os.path.abspath(self.archive_path)
-                logging.info(f"Absolute archive path: {archive_abs_path}")
-    
-                # Connect to archive database
+                logging.info(f"Archive DB path: {archive_abs_path}")
+
                 archive_conn = sqlite3.connect(archive_abs_path)
                 archive_cursor = archive_conn.cursor()
-    
+
                 # Ensure the archive table exists
-                archive_cursor.execute(f"""
-                    CREATE TABLE IF NOT EXISTS scans (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        domain TEXT,
-                        protocol TEXT,
-                        duration INTEGER,
-                        finished INTEGER DEFAULT 0,
-                        successful_runs INTEGER DEFAULT 0,
-                        failed_runs INTEGER DEFAULT 0,
-                        start_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        last_scan_time TIMESTAMP,
-                        status TEXT DEFAULT 'Unknown',
-                        details TEXT DEFAULT '',
-                        total_scans INTEGER DEFAULT 0,
-                        successful_scans INTEGER DEFAULT 0,
-                        failed_scans INTEGER DEFAULT 0,
-                        unique_id TEXT,
-                        original_url TEXT
-                    )
-                """)
-    
-                logging.info(f"Archive table ensured in {archive_abs_path}")
-                logging.info(f"Row data for archive: {row}")
-    
-                try:
-                    archive_cursor.execute(f"INSERT INTO scans ({column_names}) VALUES ({placeholders})", row)
-                    archive_conn.commit()
-                    logging.info(f"✅ Successfully moved {host} to archive.db")
-                except Exception as e:
-                    logging.error(f"❌ Insert into archive.db failed for {host}: {e}")
-    
+                archive_cursor.execute(f"CREATE TABLE IF NOT EXISTS scans ({column_names})")
+                archive_cursor.execute(f"INSERT INTO scans ({column_names}) VALUES ({placeholders})", row)
+
+                archive_conn.commit()
+                archive_conn.execute("PRAGMA wal_checkpoint(FULL);")  # Ensure writes are flushed
                 archive_conn.close()
+                logging.info(f"✅ Successfully moved {host} to archive.db")
+
+                # Ensure SQLite flushes writes to disk
+                cursor.execute("PRAGMA wal_checkpoint(FULL);")
+                conn.commit()
+                conn.close()
+                logging.info(f"✅ Changes fully written to disk for {host}.")
+
+                # Push archive.db to GitHub
+                self.upload_to_github(self.archive_path, "Update archive.db after monitoring")
+
             else:
                 logging.warning(f"No scan found for {host} to archive.")
-    
-            conn.close()
-    
+
         except Exception as e:
             logging.error(f"❌ Failed to move scan to archive for {host}: {e}")
