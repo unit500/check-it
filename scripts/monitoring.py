@@ -179,21 +179,42 @@ class Monitoring:
             logging.error(f"❌ Failed to move scan to archive for {host}: {e}")
 
     def upload_to_github(self, file_path, commit_message):
-        """Uploads a file to GitHub using the API."""
-        if not GITHUB_TOKEN:
-            logging.error("GitHub token is missing. Cannot upload.")
-            return
+    """Uploads a file to GitHub using the API."""
+    if not GITHUB_TOKEN:
+        logging.error("GitHub token is missing. Cannot upload.")
+        return
 
-        url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{ARCHIVE_DB_PATH}"
-        headers = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
-        
-        with open(file_path, "rb") as f:
-            content = base64.b64encode(f.read()).decode()
+    base_url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{ARCHIVE_DB_PATH}"
+    headers = {
+        "Authorization": f"token {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github.v3+json"
+    }
+    
+    # Read and encode file content
+    with open(file_path, "rb") as f:
+        content = base64.b64encode(f.read()).decode()
 
-        data = {"message": commit_message, "content": content, "branch": "main"}
-        response = requests.put(url, json=data, headers=headers)
+    # Fetch the current file SHA if it exists
+    get_url = f"{base_url}?ref=main"
+    get_response = requests.get(get_url, headers=headers)
+    if get_response.status_code == 200:
+        file_info = get_response.json()
+        file_sha = file_info.get("sha")
+    else:
+        file_sha = None
 
-        if response.status_code == 201 or response.status_code == 200:
-            logging.info("✅ GitHub Commit Successful: archive.db updated.")
-        else:
-            logging.error(f"❌ GitHub Commit Failed: {response.text}")
+    # Prepare payload for updating or creating the file
+    data = {
+        "message": commit_message,
+        "content": content,
+        "branch": "main"
+    }
+    if file_sha:
+        data["sha"] = file_sha
+
+    response = requests.put(base_url, json=data, headers=headers)
+
+    if response.status_code in [200, 201]:
+        logging.info("✅ GitHub Commit Successful: archive.db updated.")
+    else:
+        logging.error(f"❌ GitHub Commit Failed: {response.text}")
