@@ -7,6 +7,7 @@ import os
 import base64
 import requests
 from datetime import datetime, timedelta
+from checkhost import CheckHostClient  # New import for check-host integration
 
 # GitHub Configuration
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
@@ -42,7 +43,6 @@ class Monitoring:
                 if duration and start_time:
                     start_time_dt = datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S")
                     time_limit = start_time_dt + timedelta(hours=duration)
-
                     if now < time_limit:
                         hosts.append(domain)  # Scan if within allowed duration
                     else:
@@ -50,8 +50,7 @@ class Monitoring:
                         self.mark_scan_finished(domain)  # Move to archive if expired
                 else:
                     logging.warning("Missing duration or start time for %s. Using default behavior.", domain)
-                    hosts.append(domain)  # Default behavior if no duration set
-
+                    hosts.append(domain)
             conn.close()
             logging.debug("Loaded active hosts from DB: %s", hosts)
         except Exception as e:
@@ -59,20 +58,36 @@ class Monitoring:
         return hosts
 
     def run(self):
-        """Runs monitoring checks for all active hosts."""
+        """Runs monitoring checks for all active hosts, including check-host.net integration."""
         logging.debug("Starting monitoring checks for hosts: %s", self.hosts)
         results = []
+        # Create an instance of the check-host client
+        checkhost_client = CheckHostClient(debug=self.debug)
         for host in self.hosts:
+            # Local check (ping + TCP connection)
             status, details = self.check_host(host)
             results.append({"host": host, "status": status, "details": details})
             self.update_host_status(host, status, details)
             logging.debug("Host %s status: %s, Details: %s", host, status, details)
+
+            # --- Begin Check-Host Integration ---
+            request_id = checkhost_client.initiate_scan(host)
+            if request_id:
+                # (Optional) Update your original scans record with checkhost request_id.
+                # For example, if you add a column 'checkhost_id' to your scans table:
+                # self.update_checkhost_reference(host, request_id)
+                # Retrieve the result (in a real scenario you might wait a few seconds before polling)
+                result_data = checkhost_client.get_scan_result(request_id)
+                if result_data:
+                    up_count, down_count = checkhost_client.process_result(result_data)
+                    checkhost_client.update_summary(request_id, up_count, down_count)
+                    # Optionally update your data.db scans record with the summary counts.
+            # --- End Check-Host Integration ---
         return results
 
     def check_host(self, host, port=80):
         """Check if a host is reachable via ping and TCP connection."""
         logging.debug("Checking host: %s on port %d", host, port)
-
         # Step 1: Ping the host
         ping_status = "Ping failed"
         try:
@@ -82,8 +97,7 @@ class Monitoring:
                 ping_status = "Ping successful"
         except Exception as e:
             logging.error("Ping error for %s: %s", host, e)
-
-        # Step 2: Attempt a TCP connection
+        # Step 2: TCP connection check
         connection_status = "Connection failed"
         try:
             with socket.create_connection((host, port), timeout=3):
@@ -91,10 +105,8 @@ class Monitoring:
         except Exception as e:
             connection_status = f"Connection error: {e}"
             logging.error("Connection error for %s: %s", host, e)
-
         status = "Up" if "successful" in connection_status else "Down"
         details = f"{ping_status}, {connection_status}"
-
         return status, details
 
     def update_host_status(self, host, status, details):
@@ -102,10 +114,8 @@ class Monitoring:
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-
             cursor.execute("SELECT total_scans, successful_scans, failed_scans FROM scans WHERE domain = ?", (host,))
             row = cursor.fetchone()
-
             if row:
                 total_scans, successful_scans, failed_scans = row
                 total_scans += 1
@@ -127,11 +137,9 @@ class Monitoring:
                 WHERE domain = ?""",
                 (status, details, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), total_scans, successful_scans, failed_scans, host)
             )
-
             conn.commit()
             conn.close()
             logging.debug("Updated scan counts for %s - Total: %d, Success: %d, Failed: %d", host, total_scans, successful_scans, failed_scans)
-
         except Exception as e:
             logging.error("Failed to update status for %s: %s", host, e)
 
@@ -140,41 +148,30 @@ class Monitoring:
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-
             cursor.execute("PRAGMA table_info(scans);")
             columns = [row[1] for row in cursor.fetchall()]
             column_names = ", ".join(columns)
             placeholders = ", ".join(["?" for _ in columns])
-
             cursor.execute(f"SELECT {column_names} FROM scans WHERE domain = ?", (host,))
             row = cursor.fetchone()
-
             if row:
                 logging.info(f"Preparing to archive scan for {host}")
-
                 archive_abs_path = os.path.abspath(self.archive_path)
                 logging.info(f"Archive DB path: {archive_abs_path}")
-
                 archive_conn = sqlite3.connect(archive_abs_path)
                 archive_cursor = archive_conn.cursor()
-
                 archive_cursor.execute(f"CREATE TABLE IF NOT EXISTS scans ({column_names})")
                 archive_cursor.execute(f"INSERT INTO scans ({column_names}) VALUES ({placeholders})", row)
-
                 archive_conn.commit()
                 archive_conn.close()
                 logging.info(f"✅ Successfully moved {host} to archive.db")
-
                 conn.execute("DELETE FROM scans WHERE domain = ?", (host,))
                 conn.commit()
                 conn.close()
                 logging.info(f"✅ Scan for {host} deleted from active scans.")
-
                 self.upload_to_github(self.archive_path, "Update archive.db after monitoring")
-
             else:
                 logging.warning(f"No scan found for {host} to archive.")
-
         except Exception as e:
             logging.error(f"❌ Failed to move scan to archive for {host}: {e}")
 
@@ -183,25 +180,17 @@ class Monitoring:
         if not GITHUB_TOKEN:
             logging.error("GitHub token is missing. Cannot upload.")
             return
-
         base_url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{ARCHIVE_DB_PATH}"
         headers = {
             "Authorization": f"token {GITHUB_TOKEN}",
             "Accept": "application/vnd.github.v3+json"
         }
-        
         with open(file_path, "rb") as f:
             content = base64.b64encode(f.read()).decode()
-
         # Fetch the current file SHA if it exists
         get_url = f"{base_url}?ref=main"
         get_response = requests.get(get_url, headers=headers)
-        if get_response.status_code == 200:
-            file_info = get_response.json()
-            file_sha = file_info.get("sha")
-        else:
-            file_sha = None
-
+        file_sha = get_response.json().get("sha") if get_response.status_code == 200 else None
         data = {
             "message": commit_message,
             "content": content,
@@ -209,9 +198,7 @@ class Monitoring:
         }
         if file_sha:
             data["sha"] = file_sha
-
         response = requests.put(base_url, json=data, headers=headers)
-
         if response.status_code in [200, 201]:
             logging.info("✅ GitHub Commit Successful: archive.db updated.")
         else:
