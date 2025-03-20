@@ -5,20 +5,25 @@ import logging
 import requests
 from datetime import datetime
 
-# Set the default path for the checkhost database (adjust if needed)
+# Define the default path for the checkhost database
 CHECKHOST_DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "checkhost.db")
 
 class CheckHostClient:
     def __init__(self, db_path=None, debug=False):
         self.debug = debug
         self.db_path = db_path if db_path else CHECKHOST_DB_PATH
+        
+        # Check if the checkhost.db file exists; if not, log and it will be created on connect.
+        if not os.path.exists(self.db_path):
+            logging.info("checkhost.db not found. Creating new checkhost database at %s", self.db_path)
         self._init_db()
 
     def _init_db(self):
         """Initialize the checkhost.db and create necessary tables if they do not exist."""
+        # Connecting will automatically create the file if it doesn't exist.
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        # Table to store meta information for each scan initiated by check-host
+        # Create the scan_meta table to store meta information for each scan.
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS scan_meta (
                 id TEXT PRIMARY KEY,
@@ -29,7 +34,7 @@ class CheckHostClient:
                 summary_down INTEGER DEFAULT 0
             )
         """)
-        # Table to store each API call’s result (both initiate and result calls)
+        # Create the scan_results table to store each API call's response.
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS scan_results (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
