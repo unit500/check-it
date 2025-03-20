@@ -144,13 +144,19 @@ class Monitoring:
             row = cursor.fetchone()
     
             if row:
-                logging.info("Preparing to archive scan for %s", host)
+                logging.info(f"Preparing to archive scan for {host}")
+                logging.info(f"Archive DB path: {self.archive_path}")
+                logging.info(f"Current working directory: {os.getcwd()}")
+    
+                # Ensure correct path in GitHub Actions
+                archive_abs_path = os.path.abspath(self.archive_path)
+                logging.info(f"Absolute archive path: {archive_abs_path}")
     
                 # Connect to archive database
-                archive_conn = sqlite3.connect(self.archive_path)
+                archive_conn = sqlite3.connect(archive_abs_path)
                 archive_cursor = archive_conn.cursor()
     
-                # Ensure the archive table exists and matches the structure of data.db
+                # Ensure the archive table exists
                 archive_cursor.execute(f"""
                     CREATE TABLE IF NOT EXISTS scans (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -172,21 +178,21 @@ class Monitoring:
                     )
                 """)
     
-                logging.info("Archive table ensured in %s", self.archive_path)
-                logging.info("Row data for archive: %s", row)
+                logging.info(f"Archive table ensured in {archive_abs_path}")
+                logging.info(f"Row data for archive: {row}")
     
                 try:
                     archive_cursor.execute(f"INSERT INTO scans ({column_names}) VALUES ({placeholders})", row)
                     archive_conn.commit()
-                    logging.info("Successfully moved %s to archive.db", host)
+                    logging.info(f"✅ Successfully moved {host} to archive.db")
                 except Exception as e:
-                    logging.error("Insert into archive.db failed for %s: %s", host, e)
+                    logging.error(f"❌ Insert into archive.db failed for {host}: {e}")
     
                 archive_conn.close()
             else:
-                logging.warning("No scan found for %s to archive.", host)
+                logging.warning(f"No scan found for {host} to archive.")
     
             conn.close()
     
         except Exception as e:
-            logging.error("Failed to move scan to archive for %s: %s", host, e)
+            logging.error(f"❌ Failed to move scan to archive for {host}: {e}")
