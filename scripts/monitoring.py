@@ -14,6 +14,7 @@ GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 REPO_OWNER = "unit500"
 REPO_NAME = "check-it"
 ARCHIVE_DB_PATH = "data/archive.db"
+CHECKHOST_DB_PATH = "data/checkhost.db"  # New constant for checkhost database
 
 class Monitoring:
     def __init__(self, db_path=None, archive_path=None, hosts=None, debug=False):
@@ -21,7 +22,10 @@ class Monitoring:
         self.debug = debug
         script_dir = os.path.dirname(os.path.abspath(__file__))
         self.db_path = db_path if db_path else os.path.join(script_dir, "..", "data", "data.db")
+        # Use provided archive_path or default based on repo structure.
         self.archive_path = archive_path if archive_path else os.path.join(script_dir, "..", ARCHIVE_DB_PATH)
+        # Define the checkhost.db path similarly.
+        self.checkhost_path = os.path.join(script_dir, "..", CHECKHOST_DB_PATH)
 
         if hosts is not None:
             self.hosts = hosts
@@ -71,18 +75,20 @@ class Monitoring:
             logging.debug("Host %s status: %s, Details: %s", host, status, details)
 
             # --- Begin Check-Host Integration ---
-            request_id = checkhost_client.initiate_scan(host)
-            if request_id:
-                # (Optional) Update your original scans record with checkhost request_id.
+            local_scan_id = checkhost_client.initiate_scan(host)
+            if local_scan_id:
+                # (Optional) Update your original scans record with the checkhost local_scan_id.
                 # For example, if you add a column 'checkhost_id' to your scans table:
-                # self.update_checkhost_reference(host, request_id)
+                # self.update_checkhost_reference(host, local_scan_id)
                 # Retrieve the result (in a real scenario you might wait a few seconds before polling)
-                result_data = checkhost_client.get_scan_result(request_id)
+                result_data = checkhost_client.get_scan_result(local_scan_id)
                 if result_data:
                     up_count, down_count = checkhost_client.process_result(result_data)
-                    checkhost_client.update_summary(request_id, up_count, down_count)
+                    checkhost_client.update_summary(local_scan_id, up_count, down_count)
                     # Optionally update your data.db scans record with the summary counts.
             # --- End Check-Host Integration ---
+        # After processing all hosts, upload the checkhost database to GitHub.
+        self.upload_to_github(self.checkhost_path, "Update checkhost.db after monitoring")
         return results
 
     def check_host(self, host, port=80):
@@ -183,7 +189,10 @@ class Monitoring:
         if not GITHUB_TOKEN:
             logging.error("GitHub token is missing. Cannot upload.")
             return
-        base_url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{ARCHIVE_DB_PATH}"
+        # Compute the repository file path as relative to the repository root.
+        repo_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+        repo_file_path = os.path.relpath(file_path, repo_root)
+        base_url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{repo_file_path}"
         headers = {
             "Authorization": f"token {GITHUB_TOKEN}",
             "Accept": "application/vnd.github.v3+json"
@@ -203,6 +212,6 @@ class Monitoring:
             data["sha"] = file_sha
         response = requests.put(base_url, json=data, headers=headers)
         if response.status_code in [200, 201]:
-            logging.info("✅ GitHub Commit Successful: archive.db updated.")
+            logging.info(f"✅ GitHub Commit Successful: {repo_file_path} updated.")
         else:
-            logging.error(f"❌ GitHub Commit Failed: {response.text}")
+            logging.error(f"❌ GitHub Commit Failed for {repo_file_path}: {response.text}")
