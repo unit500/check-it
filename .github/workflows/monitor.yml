@@ -31,11 +31,11 @@ jobs:
         run: |
           git config user.name github-actions
           git config user.email github-actions@github.com
-          git pull origin main
+          git pull --rebase --autostash origin main
           git add data/data.db data/checkhost.db data/archive.db report.html index.html
           git commit -m "Update site data, report, and index page [automated]" || echo "No changes detected"
           git push origin main
-
+          
       - name: Deploy Report to Pages Branch
         run: |
           git config user.name github-actions
