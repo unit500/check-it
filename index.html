@@ -1,195 +1,497 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Check-It | Uptime Monitoring Service</title>
-  <!-- Tailwind CSS via CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Google reCAPTCHA v2 -->
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Check-It - Uptime Monitoring</title>
+  
+  <!-- Load Google reCAPTCHA -->
   <script src="https://www.google.com/recaptcha/api.js" async defer></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            monitor: {
-              50: '#eefaff',
-              100: '#d9f2ff',
-              200: '#bae8ff',
-              300: '#83daff',
-              400: '#46c7ff',
-              500: '#1aacff',
-              600: '#0090ff',
-              700: '#0077e1',
-              800: '#0561b7',
-              900: '#0c5494',
-              950: '#0b315a',
-            }
-          }
-        }
+  
+  <style>
+    /* Hacker Theme Variables */
+    :root {
+      --hacker-background: #121212;
+      --hacker-card: #222222;
+      --hacker-accent: #00FF41;
+      --hacker-secondary: #2E8B57;
+      --hacker-muted: #555555;
+      --hacker-border: #333333;
+      --hacker-text: #E0E0E0;
+      --hacker-error: #FF0000;
+    }
+    
+    /* Base Page Styles */
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: "Consolas", "Monaco", "Courier New", monospace;
+      background-color: var(--hacker-background);
+      color: var(--hacker-text);
+      line-height: 1.5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    a {
+      text-decoration: none;
+      color: var(--hacker-text);
+    }
+    
+    /* Container */
+    .container {
+      width: 100%;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 1rem;
+    }
+
+    /* Header */
+    header {
+      background-color: var(--hacker-card);
+      border-bottom: 1px solid rgba(0, 255, 65, 0.3);
+      padding: 1rem 0;
+      position: relative;
+    }
+    .header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .logo-area {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .logo-text {
+      font-size: 1.875rem;
+      font-weight: bold;
+      color: var(--hacker-accent);
+      text-shadow: 0 0 5px rgba(0, 255, 65, 0.7);
+    }
+
+    /* Hamburger Menu Icon */
+    #menu-toggle {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--hacker-text);
+    }
+    #menu-toggle svg {
+      width: 32px;
+      height: 32px;
+    }
+
+    /* Nav Menu */
+    nav {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    nav a:hover {
+      color: var(--hacker-accent);
+    }
+
+    /* Mobile Menu */
+    #mobile-menu {
+      display: none; /* hidden by default */
+      background-color: var(--hacker-card);
+      border-top: 1px solid var(--hacker-border);
+      position: absolute;
+      top: 100%;
+      left: 0;
+      width: 100%;
+      z-index: 10;
+    }
+    #mobile-menu ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    #mobile-menu li {
+      border-bottom: 1px solid var(--hacker-border);
+    }
+    #mobile-menu li a {
+      display: block;
+      padding: 0.75rem 1rem;
+    }
+    #mobile-menu li a:hover {
+      background-color: var(--hacker-border);
+    }
+
+    /* Header Intro */
+    .header-intro {
+      max-width: 48rem;
+      margin: 2rem auto 2rem auto;
+    }
+    .header-intro h2 {
+      font-size: 1.25rem;
+      font-weight: 500;
+      color: var(--hacker-accent);
+      margin-bottom: 1rem;
+    }
+    .blink {
+      animation: blink 1.2s infinite;
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+
+    /* Main Section */
+    main {
+      flex: 1;
+      padding: 2rem 0;
+    }
+    .intro {
+      max-width: 48rem;
+      margin: 0 auto 3rem auto;
+      text-align: center;
+    }
+    .intro h2 {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: var(--hacker-accent);
+      margin-bottom: 1rem;
+    }
+
+    /* Feature Cards */
+    .features {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+      margin-bottom: 3rem;
+    }
+    @media (min-width: 768px) {
+      .features {
+        grid-template-columns: repeat(2, 1fr);
       }
     }
-  </script>
-</head>
-<body class="min-h-screen flex flex-col bg-gradient-to-b from-white to-gray-50">
-  <!-- Header -->
-  <header class="w-full bg-gradient-to-r from-monitor-900 to-monitor-700 text-white relative">
-    <div class="container mx-auto py-6 px-4 flex justify-between items-center">
-      <div class="flex items-center gap-3">
-        <!-- Hamburger Menu Icon -->
-        <button id="menu-toggle" class="p-2 focus:outline-none">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
-          </svg>
-        </button>
-        <!-- Server Icon -->
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-monitor-300" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
-          <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
-        </svg>
-        <h1 class="text-3xl font-bold tracking-tight">Check-It</h1>
-      </div>
-      <a href="https://github.com/unit500/check-it" target="_blank" rel="noreferrer" aria-label="GitHub repository" class="p-2 rounded-full hover:bg-monitor-800 hover:text-white">
-        <!-- GitHub Icon -->
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
-        </svg>
-      </a>
-    </div>
-    <!-- Hamburger Menu Dropdown -->
-    <nav id="mobile-menu" class="hidden absolute top-full left-0 w-full bg-monitor-700 text-white">
-      <ul>
-        <li>
-          <a href="report.html" class="block px-4 py-2 hover:bg-monitor-800">View Report</a>
-        </li>
-      </ul>
-    </nav>
-    <div class="container mx-auto mt-10 pb-10 px-4 max-w-3xl">
-      <h2 class="text-xl md:text-2xl font-medium mb-4">
-        <b>Free</b> <i>Remote Servers Uptime Monitor</i>
-      </h2>
-      <p class="text-monitor-100 text-base md:text-lg">
-        Check-It provides real-time monitoring of your web services and servers. 
-        Submit any domain below to check for the next few hours whether the site is online or not.
-      </p>
-    </div>
-  </header>
+    @media (min-width: 1024px) {
+      .features {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+    .feature-card {
+      background-color: var(--hacker-card);
+      border: 1px solid var(--hacker-border);
+      border-radius: 0.375rem;
+      padding: 1.5rem;
+      text-align: center;
+    }
+    .icon-wrapper {
+      background-color: var(--hacker-background);
+      border: 1px solid var(--hacker-accent);
+      border-radius: 9999px;
+      padding: 0.75rem;
+      margin: 0 auto 1rem auto;
+      width: 3rem;
+      height: 3rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .feature-card h3 {
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: var(--hacker-accent);
+      margin-bottom: 0.5rem;
+    }
+    .feature-card p {
+      font-size: 0.875rem;
+      color: var(--hacker-text);
+    }
 
-  <!-- Main Content -->
-  <main class="flex-1">
-    <div class="container mx-auto px-4 py-10">
-      <div class="max-w-3xl mx-auto mb-12 text-center">
-        <h2 class="text-2xl font-bold text-monitor-800 mb-4">
-          Monitor <b>Any</b> Web Services
+    /* Form Section */
+    .form-container {
+      max-width: 36rem;
+      margin: 0 auto;
+      background-color: var(--hacker-card);
+      border: 1px solid var(--hacker-border);
+      border-radius: 0.375rem;
+      padding: 1.5rem;
+    }
+    .form-container h3 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--hacker-accent);
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+    label {
+      display: block;
+      font-size: 0.875rem;
+      margin-bottom: 0.5rem;
+    }
+    input[type="text"], select {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1rem;
+      background-color: var(--hacker-background);
+      border: 1px solid var(--hacker-border);
+      border-radius: 0.375rem;
+      color: var(--hacker-text);
+    }
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--hacker-accent);
+      box-shadow: 0 0 0 2px rgba(0, 255, 65, 0.2);
+    }
+    .radio-group {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .radio-option {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .radio-option input {
+      width: auto;
+      height: auto;
+    }
+    .submit-btn {
+      width: 100%;
+      background-color: var(--hacker-background);
+      color: var(--hacker-accent);
+      border: 1px solid var(--hacker-accent);
+      border-radius: 0.375rem;
+      padding: 0.75rem 1.5rem;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .submit-btn:hover {
+      background-color: var(--hacker-border);
+    }
+    .info-text {
+      font-size: 0.75rem;
+      margin-top: 0.75rem;
+      color: var(--hacker-muted);
+      text-align: center;
+    }
+
+    /* Footer */
+    footer {
+      background-color: var(--hacker-card);
+      border-top: 1px solid var(--hacker-border);
+      padding: 2rem 0;
+      text-align: center;
+    }
+    footer p {
+      font-size: 0.875rem;
+      color: var(--hacker-text);
+      margin: 0.5rem 0;
+    }
+    .footer-subtext {
+      font-size: 0.75rem;
+      margin-top: 0.5rem;
+      color: var(--hacker-muted);
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header>
+    <div class="container">
+      <div class="header-top">
+        <div class="logo-area">
+          <!-- Hamburger Menu Icon -->
+          <button id="menu-toggle" aria-label="Menu Toggle">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor"
+                 viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" 
+                 stroke-linejoin="round">
+              <path d="M4 6h16M4 12h16M4 18h16"></path>
+            </svg>
+          </button>
+          <!-- Hacker Logo Icon (or server icon) -->
+          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"
+               fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" 
+               stroke-linejoin="round" style="color: var(--hacker-accent);">
+            <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+            <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+          </svg>
+          <h1 class="logo-text">Check-It</h1>
+        </div>
+        <nav>
+          <!-- GitHub Link -->
+          <a href="https://github.com/unit500/check-it" target="_blank" rel="noreferrer" aria-label="GitHub repository">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" 
+                 viewBox="0 0 24 24" fill="none" stroke="currentColor" 
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61
+                       c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77
+                       5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48
+                       a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1
+                       5.09 1A5.07 5.07 0 0 0 5 4.77
+                       a5.44 5.44 0 0 0-1.5 3.78c0 5.42
+                       3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22">
+              </path>
+            </svg>
+          </a>
+        </nav>
+      </div>
+
+      <!-- Mobile Menu (Hamburger Dropdown) -->
+      <nav id="mobile-menu">
+        <ul>
+          <li>
+            <a href="report.html">View Report</a>
+          </li>
+        </ul>
+      </nav>
+
+      <div class="header-intro">
+        <h2>
+          &gt; DDoS Monitoring System v1.0.2_<span class="blink">|</span>
         </h2>
-        <p class="text-gray-600 mb-8">
-          Check-It monitors websites, APIs, and servers to ensure they're up and running for a specific time frame. 
-          If a site is under a DDoS attack, you can measure and identify it reliably using this service.
+        <p>
+          Check-It provides real-time DDoS monitoring service of websites and servers. 
+          Anyone can submit any domain below and add them to Check-It free uptime checks. 
+          DDoS attacks can be verified automatically and are recorded and uploaded to the GitHub free repo.
+          The extensive open GitHub repo is open for anyone interested in seeing DDoS attacks and their impacts.
         </p>
       </div>
-      
+    </div>
+  </header>
+  
+  <!-- Main Content -->
+  <main>
+    <div class="container">
+      <!-- Intro Section -->
+      <div class="intro">
+        <h2>$ ./start_monitoring.sh</h2>
+        <p>
+          Check-It DDoS Monitoring service continuously monitors any website’s 
+          availability for a specific set of time. If a website is not available, 
+          screenshots are automatically taken and images are generated to provide 
+          proof of the cyber incident.
+        </p>
+      </div>
+
       <!-- Feature Cards -->
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
-        <!-- Card 1 -->
-        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-100 flex flex-col items-center text-center">
-          <div class="bg-monitor-100 p-3 rounded-full mb-4">
-            <!-- Activity Icon -->
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-monitor-600" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <div class="features">
+        <div class="feature-card">
+          <div class="icon-wrapper">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" 
+                 viewBox="0 0 24 24" fill="none" stroke="currentColor" 
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                 style="color: var(--hacker-accent);">
               <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
             </svg>
           </div>
-          <h3 class="font-semibold text-lg mb-2">Real-time Monitoring</h3>
-          <p class="text-gray-500 text-sm">Continuous checks at regular intervals to identify whether sites are impacted by DDoS cyber attacks</p>
+          <h3>Real-time Monitoring</h3>
+          <p>Continuous checks at regular intervals</p>
         </div>
         
-        <!-- Card 2 -->
-        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-100 flex flex-col items-center text-center">
-          <div class="bg-monitor-100 p-3 rounded-full mb-4">
-            <!-- Zap Icon -->
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-monitor-600" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
-            </svg>
-          </div>
-          <h3 class="font-semibold text-lg mb-2">Free & Open</h3>
-          <p class="text-gray-500 text-sm">Running on GitHub and 100% open and free for use by anyone</p>
-        </div>
-        
-        <!-- Card 3 -->
-        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-100 flex flex-col items-center text-center">
-          <div class="bg-monitor-100 p-3 rounded-full mb-4">
-            <!-- Shield Icon -->
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-monitor-600" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-            </svg>
-          </div>
-          <h3 class="font-semibold text-lg mb-2">Unit500 Integrated</h3>
-          <p class="text-gray-500 text-sm">Natively integrated with Unit500 DDoS reporting website to provide proof of attacks</p>
-        </div>
-        
-        <!-- Card 4 -->
-        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-100 flex flex-col items-center text-center">
-          <div class="bg-monitor-100 p-3 rounded-full mb-4">
-            <!-- Globe Icon -->
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-monitor-600" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <div class="feature-card">
+          <div class="icon-wrapper">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+                 viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                 style="color: var(--hacker-accent);">
+              <path d="M12 12v1"></path>
+              <path d="M12 17a5 5 0 0 0-5-5 5 5 0 0 0 5-5 5 5 0 0 0 5 5"></path>
               <circle cx="12" cy="12" r="10"></circle>
-              <line x1="2" y1="12" x2="22" y2="12"></line>
-              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
             </svg>
           </div>
-          <h3 class="font-semibold text-lg mb-2">Open Source</h3>
-          <p class="text-gray-500 text-sm">Use this repo online on GitHub or clone the repository and run your own tests</p>
+          <h3>Automatic Verification</h3>
+          <p>Sites under DDoS are automatically verified and proof is uploaded.</p>
+        </div>
+        
+        <div class="feature-card">
+          <div class="icon-wrapper">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+                 viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                 style="color: var(--hacker-accent);">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+          </div>
+          <h3>Open Source Code</h3>
+          <p>The code of Check-It is available on GitHub for anyone to clone.</p>
+        </div>
+        
+        <div class="feature-card">
+          <div class="icon-wrapper">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+                 viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                 style="color: var(--hacker-accent);">
+              <circle cx="12" cy="12" r="10"></circle>
+              <circle cx="12" cy="12" r="4"></circle>
+              <line x1="21.17" y1="8" x2="12" y2="8"></line>
+              <line x1="3.95" y1="6.06" x2="8.54" y2="14"></line>
+              <line x1="10.88" y1="21.94" x2="15.46" y2="14"></line>
+            </svg>
+          </div>
+          <h3>Global Reach</h3>
+          <p>Paired with check-host.net, the service monitors from multiple worldwide nodes.</p>
         </div>
       </div>
-      
-      <!-- Monitor Form -->
-      <div class="max-w-lg mx-auto bg-white rounded-lg shadow-md p-6 border border-gray-200">
-        <h3 class="text-xl font-semibold text-center mb-6">Add a Website to Monitor</h3>
-        <form id="monitorForm" class="space-y-4">
-          <div>
-            <label for="domain" class="block text-sm font-medium text-gray-700 mb-1">Domain to monitor</label>
-            <input type="text" id="domain" name="domain" placeholder="www.example.com" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-monitor-500">
-          </div>
-          <div>
-            <label for="protocol" class="block text-sm font-medium text-gray-700 mb-1">Protocol</label>
-            <select id="protocol" name="protocol" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-monitor-500">
-              <option value="https" selected>HTTPS</option>
-              <option value="http">HTTP</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Monitoring Duration</label>
-            <div class="flex space-x-4">
-              <div class="flex items-center">
-                <input type="radio" id="duration1" name="duration" value="1" checked class="h-4 w-4 text-monitor-600 border-gray-300 focus:ring-monitor-500">
-                <label for="duration1" class="ml-2 text-sm text-gray-700">1 Hour</label>
-              </div>
-              <div class="flex items-center">
-                <input type="radio" id="duration3" name="duration" value="3" class="h-4 w-4 text-monitor-600 border-gray-300 focus:ring-monitor-500">
-                <label for="duration3" class="ml-2 text-sm text-gray-700">3 Hours</label>
-              </div>
+
+      <!-- Form Section -->
+      <div class="form-container">
+        <h3>&gt; Add New Check-It!</h3>
+        <form id="monitorForm">
+          <label for="domain">Domain to monitor</label>
+          <input
+            type="text"
+            id="domain"
+            name="domain"
+            placeholder="www.example.com"
+            required
+          />
+
+          <label for="protocol">Protocol</label>
+          <select id="protocol" name="protocol">
+            <option value="https" selected>HTTPS</option>
+            <option value="http">HTTP</option>
+          </select>
+
+          <label>Monitoring Duration</label>
+          <div class="radio-group">
+            <div class="radio-option">
+              <input 
+                type="radio"
+                id="duration1"
+                name="duration"
+                value="1"
+                checked
+              />
+              <label for="duration1">1 Hour</label>
+            </div>
+            <div class="radio-option">
+              <input
+                type="radio"
+                id="duration3"
+                name="duration"
+                value="3"
+              />
+              <label for="duration3">3 Hours</label>
             </div>
           </div>
+<br>
           <!-- Google reCAPTCHA widget -->
           <div class="g-recaptcha" data-sitekey="6Lepe_MqAAAAALRL0aRG7TFMmAmFFcwWmjMZWrcb"></div>
-          <button type="submit" class="w-full bg-monitor-600 hover:bg-monitor-700 text-white font-medium py-2 px-4 rounded-md transition-colors">
-            Start Monitoring
-          </button>
-          <p class="text-xs text-gray-500 text-center mt-2">
+          <br>
+          <button type="submit" class="submit-btn">Start Monitoring</button>
+          <p class="info-text">
             Remember, all the data here is public—everything is open source.
           </p>
         </form>
       </div>
     </div>
   </main>
-
+  
   <!-- Footer -->
-  <footer class="bg-gray-900 text-gray-400 py-8">
-    <div class="container mx-auto px-4 text-center">
-      <p class="text-sm">
-        Check-It &copy; 2025 - Open Source Uptime Monitoring
-      </p>
-      <p class="text-xs mt-2">
+  <footer>
+    <div class="container">
+      <p>Check-It &copy; 2025 - Open Source Uptime Monitoring</p>
+      <p class="footer-subtext">
         Built with GitHub and love for reliability and performance
       </p>
     </div>
@@ -199,9 +501,14 @@
   <script>
     document.addEventListener("DOMContentLoaded", function() {
       // Hamburger menu toggle
-      document.getElementById('menu-toggle').addEventListener('click', function() {
-        var menu = document.getElementById('mobile-menu');
-        menu.classList.toggle('hidden');
+      const menuToggle = document.getElementById('menu-toggle');
+      const mobileMenu = document.getElementById('mobile-menu');
+      menuToggle.addEventListener('click', function() {
+        if (mobileMenu.style.display === 'block') {
+          mobileMenu.style.display = 'none';
+        } else {
+          mobileMenu.style.display = 'block';
+        }
       });
       
       // Form submission handler that calls the AWS API Gateway endpoint
@@ -219,6 +526,7 @@
           return;
         }
         
+        // Replace with your actual endpoint:
         const endpoint = "https://pz83cfr455.execute-api.us-east-1.amazonaws.com/submit-scan";
         const data = { domain, protocol, duration, recaptchaToken };
         
@@ -241,7 +549,7 @@
           grecaptcha.reset();
         });
         
-        // Optionally, reset the form
+        // Optionally reset the form
         form.reset();
         document.getElementById('protocol').value = 'https';
         document.getElementById('duration1').checked = true;
