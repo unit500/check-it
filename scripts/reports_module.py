@@ -1,4 +1,4 @@
-# Version 1.3.11a
+# Version 1.3.12
 import sqlite3
 import logging
 import os
@@ -15,7 +15,7 @@ import charts_module
 class Reports:
     def __init__(self, db_path=None, archive_path=None, output_path=None, details_dir=None, debug=False):
         """Initialize the report generation class with database paths.
-        
+
         By default, the details directory is set to '/tmp/details'.
         """
         self.debug = debug
@@ -23,7 +23,7 @@ class Reports:
         self.db_path = db_path if db_path else os.path.join(script_dir, "..", "data", "data.db")
         self.archive_path = archive_path if archive_path else os.path.join(script_dir, "..", "data", "archive.db")
         self.output_path = output_path if output_path else os.path.join(script_dir, "..", "report.html")
-        # Set details_dir to /tmp/details by default.
+        # Use /tmp/details as the default details directory.
         self.details_dir = details_dir if details_dir else os.path.join("/tmp", "details")
     
     def check_and_update_schema(self, db_file):
@@ -49,13 +49,15 @@ class Reports:
             logging.error("Failed to update schema for %s: %s", db_file, e)
 
     def fetch_latest_results(self):
-        """Fetch latest active scan results from data.db that haven't been generated yet."""
+        """Fetch latest active scan results from data.db that haven't been generated yet.
+        Now also selects the details_path column.
+        """
         results = []
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT id, start_time, status, domain, total_scans, successful_scans, failed_scans, last_scan_time, details, duration 
+                SELECT id, start_time, status, domain, total_scans, successful_scans, failed_scans, last_scan_time, details, duration, details_path 
                 FROM scans
                 WHERE finished = 0 AND (generated_report IS NULL OR generated_report = 'no')
                 ORDER BY last_scan_time DESC
@@ -67,13 +69,15 @@ class Reports:
         return results
 
     def fetch_latest_completed_scans(self):
-        """Fetch latest 10 completed scans from archive.db that haven't been generated yet."""
+        """Fetch latest 10 completed scans from archive.db that haven't been generated yet.
+        Also selects the details_path column.
+        """
         results = []
         try:
             conn = sqlite3.connect(self.archive_path)
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT id, start_time, status, domain, total_scans, successful_scans, failed_scans, last_scan_time, details, duration 
+                SELECT id, start_time, status, domain, total_scans, successful_scans, failed_scans, last_scan_time, details, duration, details_path 
                 FROM scans
                 WHERE (generated_report IS NULL OR generated_report = 'no')
                 ORDER BY last_scan_time DESC
@@ -265,7 +269,8 @@ class Reports:
     
     def update_details_path_in_db(self, record_id, relative_path, db_file):
         """
-        Update the scans record in the given database with the relative details directory and mark generated_report as 'yes'.
+        Update the scans record in the given database with the relative details directory
+        and mark generated_report as 'yes'.
         """
         try:
             conn = sqlite3.connect(db_file)
@@ -351,7 +356,6 @@ class Reports:
         
         self.generate_details_html(dir_path, report_summary)
         
-        # Update the database record with the relative details path and mark report as generated.
         self.update_details_path_in_db(unique_id, relative_path, self.db_path)
     
     def commit_changes(self, commit_message="Update generated reports and details"):
@@ -377,7 +381,6 @@ class Reports:
                 subprocess.run(["git", "remote", "set-url", "origin", repo_url], check=True)
             else:
                 subprocess.run(["git", "remote", "add", "origin", repo_url], check=True)
-            # Skip resetting .github if it doesn't exist.
             if os.path.exists(os.path.join(self.details_dir, ".github")):
                 subprocess.run(["git", "reset", ".github"], check=True)
             subprocess.run(["git", "add", "."], check=True)
@@ -392,7 +395,6 @@ class Reports:
         store working files for each active scan, generate the main report,
         and commit changes (only the details/ directory) back to Git.
         """
-        # Ensure both databases have the new schema.
         self.check_and_update_schema(self.db_path)
         self.check_and_update_schema(self.archive_path)
         
@@ -400,10 +402,10 @@ class Reports:
         completed_scans = self.fetch_latest_completed_scans()
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
-        # Use timeline data from checkhost.db for timeline generation.
         timeline_data_all = self.fetch_timeline_data_from_checkhost()
         timeline_data_json = json.dumps(timeline_data_all)
         
+        # Each active scan row now has 11 elements (with details_path at index 10).
         active_scans_with_progress = [list(row) + [self.calculate_progress(row[1], row[9])] for row in active_scans]
         completed_scans_with_progress = [list(row) + [self.calculate_progress(row[1], row[9])] for row in completed_scans]
         
@@ -470,8 +472,14 @@ class Reports:
                                     <tr class="border border-gray-300 {% if loop.index is even %} bg-gray-50 {% endif %}">
                                         <td class="px-4 py-2 text-gray-500">{{ row[1] }}</td>
                                         <td class="px-4 py-2 {% if row[2] == 'Up' %} text-green-600 {% else %} text-red-600 {% endif %}">{{ row[2] }}</td>
-                                        <td class="px-4 py-2 font-medium">{{ row[3] }}</td>
-                                        <td class="px-4 py-2 text-blue-600 font-semibold">{{ row[10] }}</td>
+                                        <td class="px-4 py-2 font-medium">
+                                          {% if row[10] %}
+                                            <a href="https://unit500.github.io/check-it-files/{{ row[10] }}/details.html" target="_blank">{{ row[3] }}</a>
+                                          {% else %}
+                                            {{ row[3] }}
+                                          {% endif %}
+                                        </td>
+                                        <td class="px-4 py-2 text-blue-600 font-semibold">{{ row[11] }}</td>
                                         <td class="px-4 py-2">{{ row[4] }}</td>
                                         <td class="px-4 py-2">{{ row[5] }}</td>
                                         <td class="px-4 py-2">{{ row[6] }}</td>
@@ -557,7 +565,7 @@ class Reports:
                                         <td class="px-4 py-2 text-gray-500">{{ row[1] }}</td>
                                         <td class="px-4 py-2">{{ row[2] }}</td>
                                         <td class="px-4 py-2 font-medium">{{ row[3] }}</td>
-                                        <td class="px-4 py-2 text-blue-600 font-semibold">{{ row[10] }}</td>
+                                        <td class="px-4 py-2 text-blue-600 font-semibold">{{ row[11] }}</td>
                                     </tr>
                                     {% endfor %}
                                 </tbody>
@@ -606,8 +614,8 @@ class Reports:
                 subprocess.run(["git", "remote", "set-url", "origin", repo_url], check=True)
             else:
                 subprocess.run(["git", "remote", "add", "origin", repo_url], check=True)
-            # Only stage changes in details/
-            subprocess.run(["git", "reset", ".github"], check=False)  # Skip if .github doesn't exist
+            if os.path.exists(os.path.join(self.details_dir, ".github")):
+                subprocess.run(["git", "reset", ".github"], check=True)
             subprocess.run(["git", "add", "."], check=True)
             subprocess.run(["git", "commit", "-m", commit_message], check=True)
             subprocess.run(["git", "push", "--force", "origin", "master"], check=True)
