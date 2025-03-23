@@ -6,6 +6,8 @@
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>Reports | Check-It Uptime Monitoring</title>
             <script src="https://cdn.tailwindcss.com"></script>
+            <!-- ECharts CDN -->
+            <script src="https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js"></script>
         </head>
         <body class="min-h-screen flex flex-col bg-gradient-to-b from-white to-gray-50">
             <header class="w-full bg-gradient-to-r from-blue-900 to-blue-700 text-white shadow-lg">
@@ -20,19 +22,17 @@
                     <div class="max-w-6xl mx-auto bg-white shadow-md rounded-lg p-6">
                         <div class="border-b pb-4 mb-6">
                             <h3 class="text-2xl font-semibold">Monitoring Report</h3>
-                            <p class="text-gray-500 text-sm">Generated on: 2025-03-23 14:50:33</p>
+                            <p class="text-gray-500 text-sm">Generated on: 2025-03-23 15:52:25</p>
                         </div>
 
                         <p class="text-lg font-semibold mb-4">
                             Status: 
                             
-                                <span class="text-red-500">
-                                    0 out of 2 hosts are DOWN
-                                </span>
+                                <span class="text-green-500">No active scans</span>
                             
                         </p>
 
-                        <div class="overflow-x-auto">
+                        <div class="overflow-x-auto mb-8">
                             <table class="min-w-full border border-gray-300 text-sm text-left">
                                 <thead class="bg-blue-50 text-blue-900">
                                     <tr>
@@ -49,33 +49,72 @@
                                 </thead>
                                 <tbody>
                                     
-                                    <tr class="border border-gray-300 ">
-                                        <td class="px-4 py-2 text-gray-500">2025-03-23 12:03:46</td>
-                                        <td class="px-4 py-2  text-green-600 ">Up</td>
-                                        <td class="px-4 py-2 font-medium">www.hlc.moj.gov.tw</td>
-                                        <td class="px-4 py-2 text-blue-600 font-semibold">92.66%</td>
-                                        <td class="px-4 py-2">12</td>
-                                        <td class="px-4 py-2">12</td>
-                                        <td class="px-4 py-2">0</td>
-                                        <td class="px-4 py-2 text-gray-500">2025-03-23 14:50:31</td>
-                                        <td class="px-4 py-2 text-gray-600">Ping failed, Connection successful</td>
-                                    </tr>
-                                    
-                                    <tr class="border border-gray-300  bg-gray-50 ">
-                                        <td class="px-4 py-2 text-gray-500">2025-03-23 12:03:23</td>
-                                        <td class="px-4 py-2  text-green-600 ">Up</td>
-                                        <td class="px-4 py-2 font-medium">www.kmc.moj.gov.tw</td>
-                                        <td class="px-4 py-2 text-blue-600 font-semibold">92.87%</td>
-                                        <td class="px-4 py-2">12</td>
-                                        <td class="px-4 py-2">12</td>
-                                        <td class="px-4 py-2">0</td>
-                                        <td class="px-4 py-2 text-gray-500">2025-03-23 14:50:27</td>
-                                        <td class="px-4 py-2 text-gray-600">Ping failed, Connection successful</td>
-                                    </tr>
-                                    
                                 </tbody>
                             </table>
                         </div>
+
+                        <div id="timelineChart" style="height: 400px;" class="mb-8"></div>
+                        <script>
+                            var timelineData = [{"host": "www.anws.gov.tw", "status": "Down", "start": 1742472171000, "end": 1742472171000}, {"host": "law.moj.gov.tw", "status": "Down", "start": 1742472177000, "end": 1742472177000}, {"host": "www.walla.co.il", "status": "Down", "start": 1742472178000, "end": 1742472178000}, {"host": "cnn.com", "status": "Down", "start": 1742472179000, "end": 1742472179000}, {"host": "www.anws.gov.tw", "status": "Down", "start": 1742473579000, "end": 1742473579000}, {"host": "law.moj.gov.tw", "status": "Down", "start": 1742473587000, "end": 1742473587000}, {"host": "www.walla.co.il", "status": "Down", "start": 1742473588000, "end": 1742473588000}, {"host": "cnn.com", "status": "Down", "start": 1742473589000, "end": 1742473589000}, {"host": "www.anws.gov.tw", "status": "Down", "start": 1742476219000, "end": 1742476219000}, {"host": "cnn.com", "status": "Up", "start": 1742476222000, "end": 1742476222000}, {"host": "www.anws.gov.tw", "status": "Down", "start": 1742476641000, "end": 1742476641000}, {"host": "cnn.com", "status": "Down", "start": 1742476644000, "end": 1742476644000}, {"host": "www.anws.gov.tw", "status": "Down", "start": 1742477338000, "end": 1742477338000}, {"host": "cnn.com", "status": "Down", "start": 1742477340000, "end": 1742477340000}, {"host": "www.anws.gov.tw", "status": "Down", "start": 1742478166000, "end": 1742478166000}, {"host": "cnn.com", "status": "Down", "start": 1742478169000, "end": 1742478169000}, {"host": "www.anws.gov.tw", "status": "Down", "start": 1742478967000, "end": 1742478967000}, {"host": "cnn.com", "status": "Up", "start": 1742478970000, "end": 1742478970000}, {"host": "www.anws.gov.tw", "status": "Down", "start": 1742479922000, "end": 1742479922000}, {"host": "cnn.com", "status": "Up", "start": 1742479925000, "end": 1742479925000}, {"host": "www.nbc.com", "status": "Down", "start": 1742479928000, "end": 1742479928000}, {"host": "www.anws.gov.tw", "status": "Down", "start": 1742480151000, "end": 1742480151000}, {"host": "cnn.com", "status": "Down", "start": 1742480153000, "end": 1742480153000}, {"host": "www.nbc.com", "status": "Down", "start": 1742480156000, "end": 1742480156000}, {"host": "www.anws.gov.tw", "status": "Down", "start": 1742480526000, "end": 1742480526000}, {"host": "cnn.com", "status": "Down", "start": 1742480529000, "end": 1742480529000}, {"host": "www.nbc.com", "status": "Down", "start": 1742480532000, "end": 1742480532000}, {"host": "www.anws.gov.tw", "status": "Down", "start": 1742480739000, "end": 1742480739000}, {"host": "cnn.com", "status": "Down", "start": 1742480741000, "end": 1742480741000}, {"host": "www.nbc.com", "status": "Down", "start": 1742480742000, "end": 1742480742000}, {"host": "www.mama.com", "status": "Down", "start": 1742480743000, "end": 1742480743000}, {"host": "cnn.com", "status": "Up", "start": 1742481354000, "end": 1742481354000}, {"host": "www.nbc.com", "status": "Down", "start": 1742481357000, "end": 1742481357000}, {"host": "www.mama.com", "status": "Up", "start": 1742481359000, "end": 1742481359000}, {"host": "cnn.com", "status": "Down", "start": 1742482046000, "end": 1742482046000}, {"host": "www.nbc.com", "status": "Down", "start": 1742482050000, "end": 1742482050000}, {"host": "www.mama.com", "status": "Down", "start": 1742482052000, "end": 1742482052000}, {"host": "www.walla.co.il", "status": "Up", "start": 1742482055000, "end": 1742482055000}, {"host": "www.nbc.com", "status": "Down", "start": 1742482491000, "end": 1742482491000}, {"host": "www.mama.com", "status": "Down", "start": 1742482494000, "end": 1742482494000}, {"host": "www.walla.co.il", "status": "Down", "start": 1742482497000, "end": 1742482497000}, {"host": "www.mama.com", "status": "Down", "start": 1742483529000, "end": 1742483529000}, {"host": "www.walla.co.il", "status": "Up", "start": 1742483532000, "end": 1742483532000}, {"host": "www.mama.com", "status": "Down", "start": 1742484718000, "end": 1742484718000}, {"host": "www.walla.co.il", "status": "Down", "start": 1742484721000, "end": 1742484721000}, {"host": "www.mama.com", "status": "Down", "start": 1742485425000, "end": 1742485425000}, {"host": "www.walla.co.il", "status": "Down", "start": 1742485427000, "end": 1742485427000}, {"host": "www.mama.com", "status": "Up", "start": 1742485869000, "end": 1742485869000}, {"host": "www.walla.co.il", "status": "Up", "start": 1742485873000, "end": 1742485873000}, {"host": "www.mama.com", "status": "Down", "start": 1742486304000, "end": 1742486304000}, {"host": "www.walla.co.il", "status": "Up", "start": 1742486307000, "end": 1742486307000}, {"host": "www.mama.com", "status": "Down", "start": 1742487826000, "end": 1742487826000}, {"host": "www.walla.co.il", "status": "Down", "start": 1742487829000, "end": 1742487829000}, {"host": "www.mama.com", "status": "Up", "start": 1742489025000, "end": 1742489025000}, {"host": "www.walla.co.il", "status": "Down", "start": 1742489028000, "end": 1742489028000}, {"host": "www.mama.com", "status": "Down", "start": 1742489663000, "end": 1742489663000}, {"host": "www.walla.co.il", "status": "Up", "start": 1742489666000, "end": 1742489666000}, {"host": "www.mama.com", "status": "Down", "start": 1742490551000, "end": 1742490551000}, {"host": "www.walla.co.il", "status": "Down", "start": 1742490554000, "end": 1742490554000}, {"host": "www.walla.co.il", "status": "Down", "start": 1742491742000, "end": 1742491742000}, {"host": "studyindenmark.dk", "status": "Down", "start": 1742550182000, "end": 1742550182000}, {"host": "studyindenmark.dk", "status": "Down", "start": 1742550610000, "end": 1742550610000}, {"host": "studyindenmark.dk", "status": "Down", "start": 1742551050000, "end": 1742551050000}, {"host": "studyindenmark.dk", "status": "Down", "start": 1742552235000, "end": 1742552235000}, {"host": "studyindenmark.dk", "status": "Down", "start": 1742553406000, "end": 1742553406000}, {"host": "www.ping.it", "status": "Down", "start": 1742563236000, "end": 1742563236000}, {"host": "www.ping.it", "status": "Down", "start": 1742564322000, "end": 1742564322000}, {"host": "www.ping.it", "status": "Down", "start": 1742564774000, "end": 1742564774000}, {"host": "www.ping.it", "status": "Down", "start": 1742565221000, "end": 1742565221000}, {"host": "www.ping.it", "status": "Up", "start": 1742566099000, "end": 1742566099000}, {"host": "israelkleod.strangled.net", "status": "Down", "start": 1742715715000, "end": 1742715715000}, {"host": "israelcool.com", "status": "Down", "start": 1742715716000, "end": 1742715716000}, {"host": "israelkleod.strangled.net", "status": "Down", "start": 1742716161000, "end": 1742716161000}, {"host": "israelcool.com", "status": "Down", "start": 1742716162000, "end": 1742716162000}, {"host": "israelkleod.strangled.net", "status": "Down", "start": 1742716596000, "end": 1742716596000}, {"host": "israelcool.com", "status": "Down", "start": 1742716597000, "end": 1742716597000}, {"host": "israelkleod.strangled.net", "status": "Down", "start": 1742717818000, "end": 1742717818000}, {"host": "israelcool.com", "status": "Down", "start": 1742717819000, "end": 1742717819000}, {"host": "israelkleod.strangled.net", "status": "Down", "start": 1742718904000, "end": 1742718904000}, {"host": "israelcool.com", "status": "Down", "start": 1742718906000, "end": 1742718906000}, {"host": "israelkleod.strangled.net", "status": "Down", "start": 1742719550000, "end": 1742719550000}, {"host": "israelcool.com", "status": "Down", "start": 1742719551000, "end": 1742719551000}, {"host": "israelkleod.strangled.net", "status": "Down", "start": 1742719984000, "end": 1742719984000}, {"host": "israelcool.com", "status": "Down", "start": 1742719986000, "end": 1742719986000}, {"host": "israelkleod.strangled.net", "status": "Down", "start": 1742720425000, "end": 1742720425000}, {"host": "israelcool.com", "status": "Down", "start": 1742720426000, "end": 1742720426000}, {"host": "israelkleod.strangled.net", "status": "Down", "start": 1742721654000, "end": 1742721654000}, {"host": "israelcool.com", "status": "Down", "start": 1742721655000, "end": 1742721655000}, {"host": "israelkleod.strangled.net", "status": "Down", "start": 1742722220000, "end": 1742722220000}, {"host": "israelcool.com", "status": "Down", "start": 1742722221000, "end": 1742722221000}, {"host": "israelkleod.strangled.net", "status": "Down", "start": 1742722721000, "end": 1742722721000}, {"host": "israelcool.com", "status": "Down", "start": 1742722722000, "end": 1742722722000}, {"host": "israelkleod.strangled.net", "status": "Down", "start": 1742723172000, "end": 1742723172000}, {"host": "israelcool.com", "status": "Down", "start": 1742723173000, "end": 1742723173000}, {"host": "israelkleod.strangled.net", "status": "Down", "start": 1742723627000, "end": 1742723627000}, {"host": "israelcool.com", "status": "Down", "start": 1742723628000, "end": 1742723628000}, {"host": "israelkleod.strangled.net", "status": "Down", "start": 1742724481000, "end": 1742724481000}, {"host": "israelcool.com", "status": "Down", "start": 1742724482000, "end": 1742724482000}, {"host": "israelkleod.strangled.net", "status": "Down", "start": 1742725770000, "end": 1742725770000}, {"host": "israelcool.com", "status": "Down", "start": 1742725772000, "end": 1742725772000}, {"host": "www.kmc.moj.gov.tw", "status": "Down", "start": 1742731541000, "end": 1742731541000}, {"host": "www.hlc.moj.gov.tw", "status": "Down", "start": 1742731549000, "end": 1742731549000}, {"host": "www.cnn.com", "status": "Down", "start": 1742731550000, "end": 1742731550000}, {"host": "www.abc.com", "status": "Down", "start": 1742731551000, "end": 1742731551000}, {"host": "www.kmc.moj.gov.tw", "status": "Down", "start": 1742731622000, "end": 1742731622000}, {"host": "www.hlc.moj.gov.tw", "status": "Down", "start": 1742731629000, "end": 1742731629000}, {"host": "www.cnn.com", "status": "Down", "start": 1742731630000, "end": 1742731630000}, {"host": "www.abc.com", "status": "Down", "start": 1742731631000, "end": 1742731631000}, {"host": "www.kmc.moj.gov.tw", "status": "Down", "start": 1742731951000, "end": 1742731951000}, {"host": "www.hlc.moj.gov.tw", "status": "Down", "start": 1742731956000, "end": 1742731956000}, {"host": "www.cnn.com", "status": "Down", "start": 1742731957000, "end": 1742731957000}, {"host": "www.abc.com", "status": "Down", "start": 1742731958000, "end": 1742731958000}, {"host": "www.kmc.moj.gov.tw", "status": "Down", "start": 1742733239000, "end": 1742733239000}, {"host": "www.hlc.moj.gov.tw", "status": "Down", "start": 1742733245000, "end": 1742733245000}, {"host": "www.cnn.com", "status": "Down", "start": 1742733246000, "end": 1742733246000}, {"host": "www.abc.com", "status": "Down", "start": 1742733247000, "end": 1742733247000}, {"host": "www.kmc.moj.gov.tw", "status": "Down", "start": 1742733912000, "end": 1742733912000}, {"host": "www.hlc.moj.gov.tw", "status": "Down", "start": 1742733919000, "end": 1742733919000}, {"host": "www.cnn.com", "status": "Down", "start": 1742733920000, "end": 1742733920000}, {"host": "www.abc.com", "status": "Down", "start": 1742733921000, "end": 1742733921000}, {"host": "www.kmc.moj.gov.tw", "status": "Down", "start": 1742735127000, "end": 1742735127000}, {"host": "www.hlc.moj.gov.tw", "status": "Down", "start": 1742735134000, "end": 1742735134000}, {"host": "www.kmc.moj.gov.tw", "status": "Down", "start": 1742735672000, "end": 1742735672000}, {"host": "www.hlc.moj.gov.tw", "status": "Down", "start": 1742735680000, "end": 1742735680000}, {"host": "www.kmc.moj.gov.tw", "status": "Down", "start": 1742736097000, "end": 1742736097000}, {"host": "www.hlc.moj.gov.tw", "status": "Down", "start": 1742736104000, "end": 1742736104000}, {"host": "www.ksc.moj.gov.tw", "status": "Down", "start": 1742736112000, "end": 1742736112000}, {"host": "www.kmc.moj.gov.tw", "status": "Down", "start": 1742736209000, "end": 1742736209000}, {"host": "www.hlc.moj.gov.tw", "status": "Down", "start": 1742736215000, "end": 1742736215000}, {"host": "www.ksc.moj.gov.tw", "status": "Down", "start": 1742736221000, "end": 1742736221000}, {"host": "www.kmc.moj.gov.tw", "status": "Down", "start": 1742736572000, "end": 1742736572000}, {"host": "www.hlc.moj.gov.tw", "status": "Down", "start": 1742736576000, "end": 1742736576000}, {"host": "www.ksc.moj.gov.tw", "status": "Down", "start": 1742736581000, "end": 1742736581000}, {"host": "www.kmc.moj.gov.tw", "status": "Down", "start": 1742736634000, "end": 1742736634000}, {"host": "www.hlc.moj.gov.tw", "status": "Down", "start": 1742736640000, "end": 1742736640000}, {"host": "www.ksc.moj.gov.tw", "status": "Down", "start": 1742736646000, "end": 1742736646000}, {"host": "www.kmc.moj.gov.tw", "status": "Down", "start": 1742737145000, "end": 1742737145000}, {"host": "www.hlc.moj.gov.tw", "status": "Down", "start": 1742737149000, "end": 1742737149000}, {"host": "www.ksc.moj.gov.tw", "status": "Down", "start": 1742737153000, "end": 1742737153000}, {"host": "www.kmc.moj.gov.tw", "status": "Down", "start": 1742737597000, "end": 1742737597000}, {"host": "www.hlc.moj.gov.tw", "status": "Down", "start": 1742737600000, "end": 1742737600000}, {"host": "www.ksc.moj.gov.tw", "status": "Down", "start": 1742737605000, "end": 1742737605000}, {"host": "www.kmc.moj.gov.tw", "status": "Down", "start": 1742737945000, "end": 1742737945000}, {"host": "www.hlc.moj.gov.tw", "status": "Down", "start": 1742737953000, "end": 1742737953000}, {"host": "www.ksc.moj.gov.tw", "status": "Down", "start": 1742737960000, "end": 1742737960000}, {"host": "www.kmc.moj.gov.tw", "status": "Down", "start": 1742738064000, "end": 1742738064000}, {"host": "www.hlc.moj.gov.tw", "status": "Down", "start": 1742738071000, "end": 1742738071000}, {"host": "www.ksc.moj.gov.tw", "status": "Down", "start": 1742738076000, "end": 1742738076000}, {"host": "www.kmc.moj.gov.tw", "status": "Down", "start": 1742738688000, "end": 1742738688000}, {"host": "www.hlc.moj.gov.tw", "status": "Down", "start": 1742738694000, "end": 1742738694000}, {"host": "www.kmc.moj.gov.tw", "status": "Down", "start": 1742738867000, "end": 1742738867000}, {"host": "www.hlc.moj.gov.tw", "status": "Down", "start": 1742738873000, "end": 1742738873000}, {"host": "www.kmc.moj.gov.tw", "status": "Down", "start": 1742739214000, "end": 1742739214000}, {"host": "www.hlc.moj.gov.tw", "status": "Down", "start": 1742739221000, "end": 1742739221000}, {"host": "www.kmc.moj.gov.tw", "status": "Down", "start": 1742739276000, "end": 1742739276000}, {"host": "www.hlc.moj.gov.tw", "status": "Down", "start": 1742739282000, "end": 1742739282000}, {"host": "www.kmc.moj.gov.tw", "status": "Down", "start": 1742739456000, "end": 1742739456000}, {"host": "www.hlc.moj.gov.tw", "status": "Down", "start": 1742739463000, "end": 1742739463000}, {"host": "www.kmc.moj.gov.tw", "status": "Down", "start": 1742740969000, "end": 1742740969000}, {"host": "www.hlc.moj.gov.tw", "status": "Down", "start": 1742740975000, "end": 1742740975000}, {"host": "www.kmc.moj.gov.tw", "status": "Down", "start": 1742741165000, "end": 1742741165000}, {"host": "www.hlc.moj.gov.tw", "status": "Down", "start": 1742741171000, "end": 1742741171000}, {"host": "www.kmc.moj.gov.tw", "status": "Down", "start": 1742741569000, "end": 1742741569000}, {"host": "www.hlc.moj.gov.tw", "status": "Down", "start": 1742741576000, "end": 1742741576000}, {"host": "www.kmc.moj.gov.tw", "status": "Down", "start": 1742741828000, "end": 1742741828000}, {"host": "www.hlc.moj.gov.tw", "status": "Down", "start": 1742741834000, "end": 1742741834000}, {"host": "www.kmc.moj.gov.tw", "status": "Down", "start": 1742741920000, "end": 1742741920000}, {"host": "www.hlc.moj.gov.tw", "status": "Down", "start": 1742741926000, "end": 1742741926000}, {"host": "www.kmc.moj.gov.tw", "status": "Down", "start": 1742741960000, "end": 1742741960000}, {"host": "www.hlc.moj.gov.tw", "status": "Down", "start": 1742741966000, "end": 1742741966000}];
+                            if(timelineData.length > 0){
+                                var minTime = Math.min.apply(null, timelineData.map(function(item){ return item.start; }));
+                                var maxTime = Math.max.apply(null, timelineData.map(function(item){ return item.end; }));
+                                var chartDom = document.getElementById('timelineChart');
+                                var myChart = echarts.init(chartDom);
+                                var option = {
+                                    tooltip: {
+                                        formatter: function(params) {
+                                            var item = timelineData[params.dataIndex];
+                                            return item.host + '<br/>' + 
+                                                new Date(item.start).toLocaleString() + ' ~ ' + new Date(item.end).toLocaleString() + '<br/>' + 
+                                                'Status: ' + item.status;
+                                        }
+                                    },
+                                    grid: { containLabel: true },
+                                    xAxis: {
+                                        type: 'value',
+                                        min: minTime,
+                                        max: maxTime,
+                                        axisLabel: {
+                                            formatter: function (value) {
+                                                return new Date(value).toLocaleTimeString();
+                                            }
+                                        }
+                                    },
+                                    yAxis: {
+                                        type: 'category',
+                                        data: timelineData.map(function(item){ return item.host; })
+                                    },
+                                    series: [{
+                                        name: 'Start',
+                                        type: 'bar',
+                                        stack: 'total',
+                                        itemStyle: { color: 'transparent' },
+                                        emphasis: { itemStyle: { color: 'transparent' } },
+                                        data: timelineData.map(function(item){ return item.start; })
+                                    }, {
+                                        name: 'Duration',
+                                        type: 'bar',
+                                        stack: 'total',
+                                        label: {
+                                            show: true,
+                                            position: 'inside',
+                                            formatter: function (params) {
+                                                return timelineData[params.dataIndex].status;
+                                            }
+                                        },
+                                        data: timelineData.map(function(item){ return item.end - item.start; }),
+                                        itemStyle: {
+                                            color: function (params) {
+                                                var status = timelineData[params.dataIndex].status;
+                                                return status === 'Up' ? '#4caf50' : '#f44336';
+                                            }
+                                        }
+                                    }]
+                                };
+                                myChart.setOption(option);
+                            }
+                        </script>
 
                         <hr class="my-10 border-gray-300">
                         <h3 class="text-xl font-semibold mb-4">Latest 10 Completed Checks</h3>
@@ -83,6 +122,20 @@
                         <div class="overflow-x-auto">
                             <table class="min-w-full border border-gray-300 text-sm text-left">
                                 <tbody>
+                                    
+                                    <tr class="border border-gray-300 ">
+                                        <td class="px-4 py-2 text-gray-500">2025-03-23 12:03:46</td>
+                                        <td class="px-4 py-2">Up</td>
+                                        <td class="px-4 py-2 font-medium">www.hlc.moj.gov.tw</td>
+                                        <td class="px-4 py-2 text-blue-600 font-semibold">100%</td>
+                                    </tr>
+                                    
+                                    <tr class="border border-gray-300  bg-gray-50 ">
+                                        <td class="px-4 py-2 text-gray-500">2025-03-23 12:03:23</td>
+                                        <td class="px-4 py-2">Up</td>
+                                        <td class="px-4 py-2 font-medium">www.kmc.moj.gov.tw</td>
+                                        <td class="px-4 py-2 text-blue-600 font-semibold">100%</td>
+                                    </tr>
                                     
                                     <tr class="border border-gray-300 ">
                                         <td class="px-4 py-2 text-gray-500">2025-03-23 13:00:24</td>
@@ -137,20 +190,6 @@
                                         <td class="px-4 py-2 text-gray-500">2025-03-20 14:37:27</td>
                                         <td class="px-4 py-2">Up</td>
                                         <td class="px-4 py-2 font-medium">www.walla.co.il</td>
-                                        <td class="px-4 py-2 text-blue-600 font-semibold">100%</td>
-                                    </tr>
-                                    
-                                    <tr class="border border-gray-300 ">
-                                        <td class="px-4 py-2 text-gray-500">2025-03-20 14:23:29</td>
-                                        <td class="px-4 py-2">Up</td>
-                                        <td class="px-4 py-2 font-medium">www.mama.com</td>
-                                        <td class="px-4 py-2 text-blue-600 font-semibold">100%</td>
-                                    </tr>
-                                    
-                                    <tr class="border border-gray-300  bg-gray-50 ">
-                                        <td class="px-4 py-2 text-gray-500">2025-03-20 14:01:13</td>
-                                        <td class="px-4 py-2">Up</td>
-                                        <td class="px-4 py-2 font-medium">www.nbc.com</td>
                                         <td class="px-4 py-2 text-blue-600 font-semibold">100%</td>
                                     </tr>
                                     
