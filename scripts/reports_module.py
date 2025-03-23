@@ -1,4 +1,4 @@
-# Version 1.3.12
+# Version 1.3.12a
 import sqlite3
 import logging
 import os
@@ -25,7 +25,10 @@ class Reports:
         self.output_path = output_path if output_path else os.path.join(script_dir, "..", "report.html")
         # Use /tmp/details as the default details directory.
         self.details_dir = details_dir if details_dir else os.path.join("/tmp", "details")
-    
+
+        logging.info("Reports initialized with db_path=%s, archive_path=%s, output_path=%s, details_dir=%s",
+                     self.db_path, self.archive_path, self.output_path, self.details_dir)
+
     def check_and_update_schema(self, db_file):
         """
         Ensure that the 'scans' table in the given database has the required columns:
@@ -49,9 +52,7 @@ class Reports:
             logging.error("Failed to update schema for %s: %s", db_file, e)
 
     def fetch_latest_results(self):
-        """Fetch latest active scan results from data.db that haven't been generated yet.
-        Now also selects the details_path column.
-        """
+        """Fetch latest active scan results from data.db that haven't been generated yet."""
         results = []
         try:
             conn = sqlite3.connect(self.db_path)
@@ -69,9 +70,7 @@ class Reports:
         return results
 
     def fetch_latest_completed_scans(self):
-        """Fetch latest 10 completed scans from archive.db that haven't been generated yet.
-        Also selects the details_path column.
-        """
+        """Fetch latest 10 completed scans from archive.db that haven't been generated yet."""
         results = []
         try:
             conn = sqlite3.connect(self.archive_path)
@@ -103,9 +102,6 @@ class Reports:
     def fetch_timeline_data_from_checkhost(self):
         """
         Fetch timeline data from checkhost.db's scan_meta table.
-        Expects the table 'scan_meta' to have columns:
-            domain, first_scan, last_scan, summary_up, summary_down.
-        Returns a list of dictionaries with keys: host, status, start, end.
         """
         timeline_data = []
         try:
@@ -134,7 +130,6 @@ class Reports:
     def generate_timeline_png(self, domain, timeline_data, output_path):
         """
         Generate a timeline chart as a PNG image using Plotly Express.
-        The chart is built as a Gantt-style timeline using the provided timeline_data.
         """
         if timeline_data is None:
             df = pd.DataFrame([], columns=["host", "status", "start", "end"])
@@ -150,10 +145,7 @@ class Reports:
         logging.info("Timeline PNG generated at %s", output_path)
 
     def generate_details_html(self, dir_path, report_summary):
-        """Generate an HTML file (details.html) in the given directory with scan details and images.
-        
-        The HTML is styled with the hacker theme similar to your index page.
-        """
+        """Generate an HTML file (details.html) in the given directory with scan details and images."""
         details_template = """
         <!DOCTYPE html>
         <html lang="en">
@@ -268,10 +260,7 @@ class Reports:
         logging.info("Details HTML generated at %s", details_html_path)
     
     def update_details_path_in_db(self, record_id, relative_path, db_file):
-        """
-        Update the scans record in the given database with the relative details directory
-        and mark generated_report as 'yes'.
-        """
+        """Update the scans record in the given database with details_path and set generated_report='yes'."""
         try:
             conn = sqlite3.connect(db_file)
             cursor = conn.cursor()
@@ -284,16 +273,8 @@ class Reports:
     
     def store_scan_details(self, scan_record, timeline_data):
         """
-        For a given scan record, create a working directory in the format:
-        /tmp/details/<year>/<month>/<day>/<domain>/
-        and store:
-          - timeline.png: generated PNG image of the timeline (via Plotly, using data from checkhost.db)
-          - pie_chart.png: generated pie chart image showing Up vs Down percentages
-          - report.json: JSON file with summary of the scan
-          - uniq_id.txt: file with unique id value
-          - details.html: an HTML page with all important information and images
-        Additionally, update the database record with the relative details directory path (excluding the /tmp/ prefix)
-        and mark generated_report as 'yes'.
+        Creates the /tmp/details/<year>/<month>/<day>/<domain>/ directory, stores timeline/pie charts, JSON, etc.
+        Then updates the DB with the relative path and sets generated_report='yes'.
         """
         unique_id = scan_record[0]
         start_time_str = scan_record[1]
@@ -326,7 +307,7 @@ class Reports:
         
         charts_module.generate_pie_chart_plotly(up_percentage, down_percentage, pie_chart_path)
         
-        # Compute the relative details path (remove the /tmp/ prefix)
+        # Compute the relative details path (remove the /tmp/ prefix if present)
         relative_path = dir_path
         if relative_path.startswith("/tmp/"):
             relative_path = relative_path[len("/tmp/"):]
@@ -356,40 +337,75 @@ class Reports:
         
         self.generate_details_html(dir_path, report_summary)
         
+        # Update DB with details path
         self.update_details_path_in_db(unique_id, relative_path, self.db_path)
     
     def commit_changes(self, commit_message="Update generated reports and details"):
         """
-        Commit and push only the details/ directory (located in /tmp/details) to the target Git repository.
-        This method changes the current working directory to self.details_dir, initializes a git repo there if needed,
-        and then commits and force pushes the changes.
+        Commit and push only the details/ directory to the target Git repository.
+        Adds additional logs to diagnose missing env vars or missing /tmp/details.
         """
+        # Log environment variables for debugging
+        logging.info("Attempting to commit changes with commit_message='%s'", commit_message)
+        logging.info("Checking environment variables for GITHUB_OWNER, GITHUB_TOKEN, GITHUB_REPO2.")
+        env_owner = os.environ.get("GITHUB_OWNER")
+        env_token = os.environ.get("GITHUB_TOKEN")
+        env_repo2 = os.environ.get("GITHUB_REPO2")
+        if not env_owner:
+            logging.warning("Environment variable GITHUB_OWNER is missing.")
+        if not env_token:
+            logging.warning("Environment variable GITHUB_TOKEN is missing.")
+        if not env_repo2:
+            logging.warning("Environment variable GITHUB_REPO2 is missing.")
+        
+        # Ensure /tmp/details exists
+        if not os.path.exists(self.details_dir):
+            logging.warning("Details directory %s does not exist; creating it now.", self.details_dir)
+            try:
+                os.makedirs(self.details_dir, exist_ok=True)
+            except Exception as e:
+                logging.error("Failed to create details directory %s: %s", self.details_dir, e)
+                return
+        
         try:
             os.chdir(self.details_dir)
+            logging.info("Changed directory to %s", self.details_dir)
             if not os.path.exists(os.path.join(self.details_dir, ".git")):
+                logging.info("Initializing a new git repository in %s", self.details_dir)
                 subprocess.run(["git", "init"], check=True)
+            
             result = subprocess.run(["git", "remote"], capture_output=True, text=True, check=True)
             remotes = result.stdout.split()
-            github_owner = os.environ.get("GITHUB_OWNER")
-            github_token = os.environ.get("GITHUB_TOKEN")
-            github_repo = os.environ.get("GITHUB_REPO2", "check-it-files")
-            if not github_owner or not github_token:
-                logging.error("Missing GITHUB_OWNER or GITHUB_TOKEN environment variables.")
+            logging.info("Existing remotes in details repo: %s", remotes)
+            
+            if not env_owner or not env_token:
+                logging.error("Missing GITHUB_OWNER or GITHUB_TOKEN environment variables. Aborting commit.")
                 return
-            repo_url = f"https://{github_token}@github.com/{github_owner}/{github_repo}.git"
+            
+            repo_url = f"https://{env_token}@github.com/{env_owner}/{env_repo2}.git"
             if "origin" in remotes:
+                logging.info("Setting remote origin URL to %s", repo_url)
                 subprocess.run(["git", "remote", "set-url", "origin", repo_url], check=True)
             else:
+                logging.info("Adding remote origin with URL %s", repo_url)
                 subprocess.run(["git", "remote", "add", "origin", repo_url], check=True)
+            
+            # Reset .github if it exists
             if os.path.exists(os.path.join(self.details_dir, ".github")):
+                logging.info(".github directory found, resetting it.")
                 subprocess.run(["git", "reset", ".github"], check=True)
+            else:
+                logging.info(".github directory not found in %s; skipping reset.", self.details_dir)
+            
             subprocess.run(["git", "add", "."], check=True)
+            logging.info("Staged all files in %s", self.details_dir)
             subprocess.run(["git", "commit", "-m", commit_message], check=True)
+            logging.info("Committed changes with message '%s'", commit_message)
             subprocess.run(["git", "push", "--force", "origin", "master"], check=True)
-            logging.info("Details directory committed and force pushed successfully from %s.", self.details_dir)
+            logging.info("Force-pushed changes to origin/master.")
         except subprocess.CalledProcessError as e:
             logging.error("Failed to commit changes: %s", e)
-    
+
     def generate(self):
         """Generate an HTML report for active and completed scans,
         store working files for each active scan, generate the main report,
@@ -405,7 +421,7 @@ class Reports:
         timeline_data_all = self.fetch_timeline_data_from_checkhost()
         timeline_data_json = json.dumps(timeline_data_all)
         
-        # Each active scan row now has 11 elements (with details_path at index 10).
+        # Each row now has details_path at index 10. We'll append progress at index 11
         active_scans_with_progress = [list(row) + [self.calculate_progress(row[1], row[9])] for row in active_scans]
         completed_scans_with_progress = [list(row) + [self.calculate_progress(row[1], row[9])] for row in completed_scans]
         
@@ -590,35 +606,3 @@ class Reports:
         logging.info("Main HTML report generated at %s", self.output_path)
         
         self.commit_changes()
-
-    def commit_changes(self, commit_message="Update generated reports and details"):
-        """
-        Commit and push only the details/ directory (located in /tmp/details) to the target Git repository.
-        This method changes the current working directory to self.details_dir, initializes a git repo there if needed,
-        and then commits and force pushes the changes.
-        """
-        try:
-            os.chdir(self.details_dir)
-            if not os.path.exists(os.path.join(self.details_dir, ".git")):
-                subprocess.run(["git", "init"], check=True)
-            result = subprocess.run(["git", "remote"], capture_output=True, text=True, check=True)
-            remotes = result.stdout.split()
-            github_owner = os.environ.get("GITHUB_OWNER")
-            github_token = os.environ.get("GITHUB_TOKEN")
-            github_repo = os.environ.get("GITHUB_REPO2", "check-it-files")
-            if not github_owner or not github_token:
-                logging.error("Missing GITHUB_OWNER or GITHUB_TOKEN environment variables.")
-                return
-            repo_url = f"https://{github_token}@github.com/{github_owner}/{github_repo}.git"
-            if "origin" in remotes:
-                subprocess.run(["git", "remote", "set-url", "origin", repo_url], check=True)
-            else:
-                subprocess.run(["git", "remote", "add", "origin", repo_url], check=True)
-            if os.path.exists(os.path.join(self.details_dir, ".github")):
-                subprocess.run(["git", "reset", ".github"], check=True)
-            subprocess.run(["git", "add", "."], check=True)
-            subprocess.run(["git", "commit", "-m", commit_message], check=True)
-            subprocess.run(["git", "push", "--force", "origin", "master"], check=True)
-            logging.info("Details directory committed and force pushed successfully from %s.", self.details_dir)
-        except subprocess.CalledProcessError as e:
-            logging.error("Failed to commit changes: %s", e)
