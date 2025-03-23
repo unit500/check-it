@@ -21,7 +21,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          pip install requests pandas jinja2
+          pip install requests pandas jinja2 plotly kaleido
 
       - name: Run Monitoring Script
         working-directory: scripts
