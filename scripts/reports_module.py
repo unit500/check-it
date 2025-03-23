@@ -431,168 +431,116 @@ class Reports:
             self.store_scan_details(scan, td)
         
         HTML_TEMPLATE = """
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Reports | Check-It Uptime Monitoring</title>
-            <script src="https://cdn.tailwindcss.com"></script>
-            <!-- ECharts CDN -->
-            <script src="https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js"></script>
-        </head>
-        <body class="min-h-screen flex flex-col bg-gradient-to-b from-white to-gray-50">
-            <header class="w-full bg-gradient-to-r from-blue-900 to-blue-700 text-white shadow-lg">
-                <div class="container mx-auto py-6 px-4 text-center">
-                    <h1 class="text-3xl font-bold tracking-tight">Check-It Uptime Monitoring</h1>
-                    <p class="text-monitor-100 text-lg mt-2">Real-time server monitoring with detailed status reports.</p>
-                </div>
-            </header>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reports | Check-It Uptime Monitoring</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen flex flex-col bg-gradient-to-b from-white to-gray-50">
+  <header class="w-full bg-gradient-to-r from-blue-900 to-blue-700 text-white shadow-lg">
+    <div class="container mx-auto py-6 px-4 text-center">
+      <h1 class="text-3xl font-bold tracking-tight">Check-It Uptime Monitoring</h1>
+      <p class="text-monitor-100 text-lg mt-2">Real-time server monitoring with detailed status reports.</p>
+    </div>
+  </header>
 
-            <main class="flex-1">
-                <div class="container mx-auto px-4 py-10">
-                    <div class="max-w-6xl mx-auto bg-white shadow-md rounded-lg p-6">
-                        <div class="border-b pb-4 mb-6">
-                            <h3 class="text-2xl font-semibold">Monitoring Report</h3>
-                            <p class="text-gray-500 text-sm">Generated on: {{ now }}</p>
-                        </div>
+  <main class="flex-1">
+    <div class="container mx-auto px-4 py-10">
+      <div class="max-w-6xl mx-auto bg-white shadow-md rounded-lg p-6">
+        <div class="border-b pb-4 mb-6">
+          <h3 class="text-2xl font-semibold">Monitoring Report</h3>
+          <p class="text-gray-500 text-sm">Generated on: {{ now }}</p>
+        </div>
 
-                        <p class="text-lg font-semibold mb-4">
-                            Status: 
-                            {% if active_scans_with_progress %}
-                                <span class="text-red-500">
-                                    {{ active_scans_with_progress | selectattr('2', 'equalto', 'Down') | list | length }} out of {{ active_scans_with_progress | length }} hosts are DOWN
-                                </span>
-                            {% else %}
-                                <span class="text-green-500">No active scans</span>
-                            {% endif %}
-                        </p>
+        <p class="text-lg font-semibold mb-4">
+          Status: 
+          {% if active_scans_with_progress %}
+            <span class="text-red-500">
+              {{ active_scans_with_progress | selectattr('2', 'equalto', 'Down') | list | length }} out of {{ active_scans_with_progress | length }} hosts are DOWN
+            </span>
+          {% else %}
+            <span class="text-green-500">No active scans</span>
+          {% endif %}
+        </p>
 
-                        <div class="overflow-x-auto mb-8">
-                            <table class="min-w-full border border-gray-300 text-sm text-left">
-                                <thead class="bg-blue-50 text-blue-900">
-                                    <tr>
-                                        <th class="border border-gray-300 px-4 py-2">Start Time</th>
-                                        <th class="border border-gray-300 px-4 py-2">Status</th>
-                                        <th class="border border-gray-300 px-4 py-2">Host</th>
-                                        <th class="border border-gray-300 px-4 py-2">Progress</th>
-                                        <th class="border border-gray-300 px-4 py-2">Total Scans</th>
-                                        <th class="border border-gray-300 px-4 py-2">Successful Scans</th>
-                                        <th class="border border-gray-300 px-4 py-2">Failed Scans</th>
-                                        <th class="border border-gray-300 px-4 py-2">Last Scan Time</th>
-                                        <th class="border border-gray-300 px-4 py-2">Details</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for row in active_scans_with_progress %}
-                                    <tr class="border border-gray-300 {% if loop.index is even %} bg-gray-50 {% endif %}">
-                                        <td class="px-4 py-2 text-gray-500">{{ row[1] }}</td>
-                                        <td class="px-4 py-2 {% if row[2] == 'Up' %} text-green-600 {% else %} text-red-600 {% endif %}">{{ row[2] }}</td>
-                                        <td class="px-4 py-2 font-medium">
-                                          {% if row[10] %}
-                                            <a href="https://unit500.github.io/check-it-files/{{ row[10] }}/details.html" target="_blank">{{ row[3] }}</a>
-                                          {% else %}
-                                            {{ row[3] }}
-                                          {% endif %}
-                                        </td>
-                                        <td class="px-4 py-2 text-blue-600 font-semibold">{{ row[11] }}</td>
-                                        <td class="px-4 py-2">{{ row[4] }}</td>
-                                        <td class="px-4 py-2">{{ row[5] }}</td>
-                                        <td class="px-4 py-2">{{ row[6] }}</td>
-                                        <td class="px-4 py-2 text-gray-500">{{ row[7] }}</td>
-                                        <td class="px-4 py-2 text-gray-600">{{ row[8] }}</td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
+        <!-- Active Scans Table -->
+        <div class="overflow-x-auto mb-8">
+          <table class="min-w-full border border-gray-300 text-sm text-left">
+            <thead class="bg-blue-50 text-blue-900">
+              <tr>
+                <th class="border border-gray-300 px-4 py-2">Start Time</th>
+                <th class="border border-gray-300 px-4 py-2">Status</th>
+                <th class="border border-gray-300 px-4 py-2">Host</th>
+                <th class="border border-gray-300 px-4 py-2">Progress</th>
+                <th class="border border-gray-300 px-4 py-2">Total Scans</th>
+                <th class="border border-gray-300 px-4 py-2">Successful Scans</th>
+                <th class="border border-gray-300 px-4 py-2">Failed Scans</th>
+                <th class="border border-gray-300 px-4 py-2">Last Scan Time</th>
+                <th class="border border-gray-300 px-4 py-2">Details</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in active_scans_with_progress %}
+              <tr class="border border-gray-300 {% if loop.index is even %} bg-gray-50 {% endif %}">
+                <td class="px-4 py-2 text-gray-500">{{ row[1] }}</td>
+                <td class="px-4 py-2 {% if row[2] == 'Up' %} text-green-600 {% else %} text-red-600 {% endif %}">{{ row[2] }}</td>
+                <td class="px-4 py-2 font-medium">
+                  {% if row[10] %}
+                    <a href="https://unit500.github.io/check-it-files/{{ row[10] }}/details.html" target="_blank">{{ row[3] }}</a>
+                  {% else %}
+                    {{ row[3] }}
+                  {% endif %}
+                </td>
+                <td class="px-4 py-2 text-blue-600 font-semibold">{{ row[11] }}</td>
+                <td class="px-4 py-2">{{ row[4] }}</td>
+                <td class="px-4 py-2">{{ row[5] }}</td>
+                <td class="px-4 py-2">{{ row[6] }}</td>
+                <td class="px-4 py-2 text-gray-500">{{ row[7] }}</td>
+                <td class="px-4 py-2 text-gray-600">{{ row[8] }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
 
-                        <div id="timelineChart" style="height: 400px;" class="mb-8"></div>
-                        <script>
-                            var timelineData = {{ timeline_data_json | safe }};
-                            if(timelineData.length > 0){
-                                var minTime = Math.min.apply(null, timelineData.map(function(item){ return item.start; }));
-                                var maxTime = Math.max.apply(null, timelineData.map(function(item){ return item.end; }));
-                                var chartDom = document.getElementById('timelineChart');
-                                var myChart = echarts.init(chartDom);
-                                var option = {
-                                    tooltip: {
-                                        formatter: function(params) {
-                                            var item = timelineData[params.dataIndex];
-                                            return item.host + '<br/>' + 
-                                                new Date(item.start).toLocaleString() + ' ~ ' + new Date(item.end).toLocaleString() + '<br/>' + 
-                                                'Status: ' + item.status;
-                                        }
-                                    },
-                                    grid: { containLabel: true },
-                                    xAxis: {
-                                        type: 'value',
-                                        min: minTime,
-                                        max: maxTime,
-                                        axisLabel: {
-                                            formatter: function (value) {
-                                                return new Date(value).toLocaleTimeString();
-                                            }
-                                        }
-                                    },
-                                    yAxis: {
-                                        type: 'category',
-                                        data: timelineData.map(function(item){ return item.host; })
-                                    },
-                                    series: [{
-                                        name: 'Start',
-                                        type: 'bar',
-                                        stack: 'total',
-                                        itemStyle: { color: 'transparent' },
-                                        emphasis: { itemStyle: { color: 'transparent' } },
-                                        data: timelineData.map(function(item){ return item.start; })
-                                    }, {
-                                        name: 'Duration',
-                                        type: 'bar',
-                                        stack: 'total',
-                                        label: {
-                                            show: true,
-                                            position: 'inside',
-                                            formatter: function (params) {
-                                                return timelineData[params.dataIndex].status;
-                                            }
-                                        },
-                                        data: timelineData.map(function(item){ return item.end - item.start; }),
-                                        itemStyle: {
-                                            color: function (params) {
-                                                var status = timelineData[params.dataIndex].status;
-                                                return status === 'Up' ? '#4caf50' : '#f44336';
-                                            }
-                                        }
-                                    }]
-                                };
-                                myChart.setOption(option);
-                            }
-                        </script>
-
-                        <hr class="my-10 border-gray-300">
-                        <h3 class="text-xl font-semibold mb-4">Latest 10 Completed Checks</h3>
-
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full border border-gray-300 text-sm text-left">
-                                <tbody>
-                                    {% for row in completed_scans_with_progress %}
-                                    <tr class="border border-gray-300 {% if loop.index is even %} bg-gray-50 {% endif %}">
-                                        <td class="px-4 py-2 text-gray-500">{{ row[1] }}</td>
-                                        <td class="px-4 py-2">{{ row[2] }}</td>
-                                        <td class="px-4 py-2 font-medium">{{ row[3] }}</td>
-                                        <td class="px-4 py-2 text-blue-600 font-semibold">{{ row[11] }}</td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </main>
-        </body>
-        </html>
-        """
+        <!-- Completed Scans Table -->
+        <div class="overflow-x-auto">
+          <table class="min-w-full border border-gray-300 text-sm text-left">
+            <thead class="bg-blue-50 text-blue-900">
+              <tr>
+                <th class="border border-gray-300 px-4 py-2">Start Time</th>
+                <th class="border border-gray-300 px-4 py-2">Status</th>
+                <th class="border border-gray-300 px-4 py-2">Host</th>
+                <th class="border border-gray-300 px-4 py-2">Details</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in completed_scans_with_progress %}
+              <tr class="border border-gray-300 {% if loop.index is even %} bg-gray-50 {% endif %}">
+                <td class="px-4 py-2 text-gray-500">{{ row[1] }}</td>
+                <td class="px-4 py-2">{{ row[2] }}</td>
+                <td class="px-4 py-2 font-medium">
+                  {% if row[10] %}
+                    <a href="https://unit500.github.io/check-it-files/{{ row[10] }}/details.html" target="_blank">{{ row[3] }}</a>
+                  {% else %}
+                    {{ row[3] }}
+                  {% endif %}
+                </td>
+                <td class="px-4 py-2 text-blue-600 font-semibold">{{ row[11] }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</body>
+</html>
+"""
         template = Template(HTML_TEMPLATE)
         html_content = template.render(
             now=now,
