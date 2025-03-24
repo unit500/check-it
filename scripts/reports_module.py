@@ -1,4 +1,3 @@
-# Version 1.3.12a
 import sqlite3
 import logging
 import os
@@ -15,7 +14,6 @@ import charts_module
 class Reports:
     def __init__(self, db_path=None, archive_path=None, output_path=None, details_dir=None, debug=False):
         """Initialize the report generation class with database paths.
-
         By default, the details directory is set to '/tmp/details'.
         """
         self.debug = debug
@@ -23,7 +21,6 @@ class Reports:
         self.db_path = db_path if db_path else os.path.join(script_dir, "..", "data", "data.db")
         self.archive_path = archive_path if archive_path else os.path.join(script_dir, "..", "data", "archive.db")
         self.output_path = output_path if output_path else os.path.join(script_dir, "..", "report.html")
-        # Use /tmp/details as the default details directory.
         self.details_dir = details_dir if details_dir else os.path.join("/tmp", "details")
 
         logging.info("Reports initialized with db_path=%s, archive_path=%s, output_path=%s, details_dir=%s",
@@ -52,15 +49,18 @@ class Reports:
             logging.error("Failed to update schema for %s: %s", db_file, e)
 
     def fetch_latest_results(self):
-        """Fetch latest active scan results from data.db that haven't been generated yet."""
+        """
+        Fetch latest active scan results from data.db.
+        Active scans are defined solely by finished = 0.
+        """
         results = []
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT id, start_time, status, domain, total_scans, successful_scans, failed_scans, last_scan_time, details, duration, details_path 
+                SELECT id, start_time, status, domain, total_scans, successful_scans, failed_scans, last_scan_time, details, duration, details_path
                 FROM scans
-                WHERE finished = 0 AND (generated_report IS NULL OR generated_report = 'no')
+                WHERE finished = 0
                 ORDER BY last_scan_time DESC
             """)
             results = cursor.fetchall()
@@ -70,15 +70,18 @@ class Reports:
         return results
 
     def fetch_latest_completed_scans(self):
-        """Fetch latest 10 completed scans from archive.db that haven't been generated yet."""
+        """
+        Fetch latest 10 completed scans from archive.db.
+        Completed scans are defined by finished = 1.
+        """
         results = []
         try:
             conn = sqlite3.connect(self.archive_path)
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT id, start_time, status, domain, total_scans, successful_scans, failed_scans, last_scan_time, details, duration, details_path 
+                SELECT id, start_time, status, domain, total_scans, successful_scans, failed_scans, last_scan_time, details, duration, details_path
                 FROM scans
-                WHERE (generated_report IS NULL OR generated_report = 'no')
+                WHERE finished = 1
                 ORDER BY last_scan_time DESC
                 LIMIT 10
             """)
@@ -260,7 +263,7 @@ class Reports:
         logging.info("Details HTML generated at %s", details_html_path)
     
     def update_details_path_in_db(self, record_id, relative_path, db_file):
-        """Update the scans record in the given database with details_path and set generated_report='yes'."""
+        """Update the scans record with details_path and mark report generation as complete."""
         try:
             conn = sqlite3.connect(db_file)
             cursor = conn.cursor()
@@ -273,8 +276,7 @@ class Reports:
     
     def store_scan_details(self, scan_record, timeline_data):
         """
-        Creates the /tmp/details/<year>/<month>/<day>/<domain>/ directory, stores timeline/pie charts, JSON, etc.
-        Then updates the DB with the relative path and sets generated_report='yes'.
+        Create the details directory, store timeline/pie charts, save JSON, and update the DB with the relative path.
         """
         unique_id = scan_record[0]
         start_time_str = scan_record[1]
@@ -337,15 +339,13 @@ class Reports:
         
         self.generate_details_html(dir_path, report_summary)
         
-        # Update DB with details path
+        # Update DB with the details path
         self.update_details_path_in_db(unique_id, relative_path, self.db_path)
     
     def commit_changes(self, commit_message="Update generated reports and details"):
         """
         Commit and push only the details/ directory to the target Git repository.
-        Adds additional logs to diagnose missing env vars or missing /tmp/details.
         """
-        # Log environment variables for debugging
         logging.info("Attempting to commit changes with commit_message='%s'", commit_message)
         logging.info("Checking environment variables for GITHUB_OWNER, GITHUB_TOKEN, GITHUB_REPO2.")
         env_owner = os.environ.get("GITHUB_OWNER")
@@ -358,7 +358,6 @@ class Reports:
         if not env_repo2:
             logging.warning("Environment variable GITHUB_REPO2 is missing.")
         
-        # Ensure /tmp/details exists
         if not os.path.exists(self.details_dir):
             logging.warning("Details directory %s does not exist; creating it now.", self.details_dir)
             try:
@@ -390,7 +389,6 @@ class Reports:
                 logging.info("Adding remote origin with URL %s", repo_url)
                 subprocess.run(["git", "remote", "add", "origin", repo_url], check=True)
             
-            # Reset .github if it exists
             if os.path.exists(os.path.join(self.details_dir, ".github")):
                 logging.info(".github directory found, resetting it.")
                 subprocess.run(["git", "reset", ".github"], check=True)
@@ -407,8 +405,8 @@ class Reports:
             logging.error("Failed to commit changes: %s", e)
 
     def generate(self):
-        """Generate an HTML report for active and completed scans,
-        store working files for each active scan, generate the main report,
+        """
+        Generate an HTML report for active and completed scans, store scan details, generate the main report,
         and commit changes (only the details/ directory) back to Git.
         """
         self.check_and_update_schema(self.db_path)
@@ -421,11 +419,11 @@ class Reports:
         timeline_data_all = self.fetch_timeline_data_from_checkhost()
         timeline_data_json = json.dumps(timeline_data_all)
         
-        # Each row now has details_path at index 10. We'll append progress at index 11
+        # Append progress (calculated using duration) to each active scan record
         active_scans_with_progress = [list(row) + [self.calculate_progress(row[1], row[9])] for row in active_scans]
         completed_scans_with_progress = [list(row) + [self.calculate_progress(row[1], row[9])] for row in completed_scans]
         
-        # For each active scan, match timeline data by domain from checkhost.db.
+        # Process details for each active scan
         for scan in active_scans_with_progress:
             td = next((item for item in timeline_data_all if item["host"] == scan[3]), None)
             self.store_scan_details(scan, td)
