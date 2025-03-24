@@ -22,7 +22,6 @@ class Reports:
         self.archive_path = archive_path if archive_path else os.path.join(script_dir, "..", "data", "archive.db")
         self.output_path = output_path if output_path else os.path.join(script_dir, "..", "report.html")
         self.details_dir = details_dir if details_dir else os.path.join("/tmp", "details")
-
         logging.info("Reports initialized with db_path=%s, archive_path=%s, output_path=%s, details_dir=%s",
                      self.db_path, self.archive_path, self.output_path, self.details_dir)
 
@@ -51,7 +50,7 @@ class Reports:
     def fetch_latest_results(self):
         """
         Fetch latest active scan results from data.db.
-        Active scans are defined solely by finished = 0.
+        Active scans are defined as those with finished = 0.
         """
         results = []
         try:
@@ -71,8 +70,8 @@ class Reports:
 
     def fetch_latest_completed_scans(self):
         """
-        Fetch latest 10 completed scans from archive.db.
-        Completed scans are defined by finished = 1.
+        Fetch the latest 10 completed scans from archive.db.
+        (Since scans in archive.db are archived, we don't need to filter by finished.)
         """
         results = []
         try:
@@ -81,7 +80,6 @@ class Reports:
             cursor.execute("""
                 SELECT id, start_time, status, domain, total_scans, successful_scans, failed_scans, last_scan_time, details, duration, details_path
                 FROM scans
-                WHERE finished = 1
                 ORDER BY last_scan_time DESC
                 LIMIT 10
             """)
@@ -338,8 +336,6 @@ class Reports:
         logging.info("Unique ID saved at %s", uniq_id_path)
         
         self.generate_details_html(dir_path, report_summary)
-        
-        # Update DB with the details path
         self.update_details_path_in_db(unique_id, relative_path, self.db_path)
     
     def commit_changes(self, commit_message="Update generated reports and details"):
@@ -406,7 +402,8 @@ class Reports:
 
     def generate(self):
         """
-        Generate an HTML report for active and completed scans, store scan details, generate the main report,
+        Generate an HTML report for active and completed scans,
+        store scan details, generate the main report,
         and commit changes (only the details/ directory) back to Git.
         """
         self.check_and_update_schema(self.db_path)
@@ -419,11 +416,11 @@ class Reports:
         timeline_data_all = self.fetch_timeline_data_from_checkhost()
         timeline_data_json = json.dumps(timeline_data_all)
         
-        # Append progress (calculated using duration) to each active scan record
+        # Append progress to each active scan record (progress is calculated using duration)
         active_scans_with_progress = [list(row) + [self.calculate_progress(row[1], row[9])] for row in active_scans]
         completed_scans_with_progress = [list(row) + [self.calculate_progress(row[1], row[9])] for row in completed_scans]
         
-        # Process details for each active scan
+        # For each active scan, process its details and store charts/JSON
         for scan in active_scans_with_progress:
             td = next((item for item in timeline_data_all if item["host"] == scan[3]), None)
             self.store_scan_details(scan, td)
@@ -546,9 +543,7 @@ class Reports:
             completed_scans_with_progress=completed_scans_with_progress,
             timeline_data_json=timeline_data_json
         )
-
         with open(self.output_path, "w", encoding="utf-8") as f:
             f.write(html_content)
         logging.info("Main HTML report generated at %s", self.output_path)
-        
         self.commit_changes()
