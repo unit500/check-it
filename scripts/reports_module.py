@@ -3,6 +3,7 @@ import logging
 import os
 import json
 import subprocess
+import shutil
 from datetime import datetime, timedelta
 from jinja2 import Template
 import plotly.express as px
@@ -42,6 +43,7 @@ class Reports:
         Ensure that the 'scans' table in the given database has the required columns:
         - details_path (TEXT)
         - generated_report (TEXT), default 'no'
+        - archived (INTEGER), default 0
         """
         try:
             conn = sqlite3.connect(db_file)
@@ -54,6 +56,9 @@ class Reports:
             if 'generated_report' not in columns:
                 cursor.execute("ALTER TABLE scans ADD COLUMN generated_report TEXT DEFAULT 'no'")
                 logging.info("Added 'generated_report' column to %s", db_file)
+            if 'archived' not in columns:
+                cursor.execute("ALTER TABLE scans ADD COLUMN archived INTEGER DEFAULT 0")
+                logging.info("Added 'archived' column to %s", db_file)
             conn.commit()
             conn.close()
         except Exception as e:
@@ -69,7 +74,8 @@ class Reports:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT id, start_time, status, domain, total_scans, successful_scans, failed_scans, last_scan_time, details, duration, details_path
+                SELECT id, start_time, status, domain, total_scans, successful_scans, failed_scans, 
+                       last_scan_time, details, duration, details_path
                 FROM scans
                 WHERE finished = 0
                 ORDER BY last_scan_time DESC
@@ -82,16 +88,17 @@ class Reports:
 
     def fetch_latest_completed_scans(self):
         """
-        Fetch the latest 10 completed scans from archive.db.
-        (Since scans in archive.db are archived, we don't need to filter by finished.)
+        Fetch the latest 10 completed scans from archive.db that haven't been archived yet (archived=0).
         """
         results = []
         try:
             conn = sqlite3.connect(self.archive_path)
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT id, start_time, status, domain, total_scans, successful_scans, failed_scans, last_scan_time, details, duration, details_path
+                SELECT id, start_time, status, domain, total_scans, successful_scans, failed_scans, 
+                       last_scan_time, details, duration, details_path
                 FROM scans
+                WHERE archived = 0
                 ORDER BY last_scan_time DESC
                 LIMIT 10
             """)
@@ -173,7 +180,8 @@ class Reports:
                 duration=report_summary.get("duration"),
                 progress=report_summary.get("progress"),
                 details=report_summary.get("details"),
-                details_directory=report_summary.get("details_directory")
+                details_directory=report_summary.get("details_directory"),
+                extra_json_files=report_summary.get("extra_json_files")
             )
             details_html_path = os.path.join(dir_path, "details.html")
             with open(details_html_path, "w", encoding="utf-8") as f:
@@ -183,7 +191,7 @@ class Reports:
             logging.error("Failed to generate details HTML: %s", e)
     
     def update_details_path_in_db(self, record_id, relative_path, db_file):
-        """Update the scans record with details_path and mark report generation as complete."""
+        """Update the scans record with details_path and mark generated_report='yes'."""
         try:
             conn = sqlite3.connect(db_file)
             cursor = conn.cursor()
@@ -194,9 +202,22 @@ class Reports:
         except Exception as e:
             logging.error("Failed to update details_path for record %s in %s: %s", record_id, db_file, e)
     
+    def mark_completed_as_archived(self, record_id):
+        """Mark a completed (archived) scan record as archived (set archived=1)."""
+        try:
+            conn = sqlite3.connect(self.archive_path)
+            cursor = conn.cursor()
+            cursor.execute("UPDATE scans SET archived = 1 WHERE id = ?", (record_id,))
+            conn.commit()
+            conn.close()
+            logging.info("Marked completed scan record %s as archived", record_id)
+        except Exception as e:
+            logging.error("Failed to mark record %s as archived: %s", record_id, e)
+
     def store_scan_details(self, scan_record, timeline_data):
         """
-        Create the details directory, store timeline/pie charts, save JSON, and update the DB with the relative path.
+        Create the details directory for an active scan, store timeline/pie charts, 
+        save report JSON, and update the DB with the relative path.
         """
         unique_id = scan_record[0]
         start_time_str = scan_record[1]
@@ -215,6 +236,7 @@ class Reports:
         json_path = os.path.join(dir_path, "report.json")
         uniq_id_path = os.path.join(dir_path, "uniq_id.txt")
         
+        # Generate timeline and pie chart
         self.generate_timeline_png(domain, timeline_data, timeline_png_path)
         
         total = scan_record[4]
@@ -229,10 +251,7 @@ class Reports:
         
         charts_module.generate_pie_chart_plotly(up_percentage, down_percentage, pie_chart_path)
         
-        # Compute the relative details path (remove the /tmp/ prefix if present)
-        relative_path = dir_path
-        if relative_path.startswith("/tmp/"):
-            relative_path = relative_path[len("/tmp/"):]
+        relative_path = dir_path if not dir_path.startswith("/tmp/") else dir_path[len("/tmp/"):]
         
         report_summary = {
             "unique_id": unique_id,
@@ -246,20 +265,129 @@ class Reports:
             "details": scan_record[8],
             "duration": scan_record[9],
             "progress": scan_record[10],
-            "timeline": timeline_data,
-            "details_directory": relative_path
+            "extra_json_files": []
         }
         with open(json_path, "w", encoding="utf-8") as f:
             json.dump(report_summary, f, indent=4)
-        logging.info("Report JSON saved at %s", json_path)
+        logging.info("Report JSON updated at %s", json_path)
         
-        with open(uniq_id_path, "w", encoding="utf-8") as f:
-            f.write(str(unique_id))
-        logging.info("Unique ID saved at %s", uniq_id_path)
+        if not os.path.exists(uniq_id_path):
+            with open(uniq_id_path, "w", encoding="utf-8") as f:
+                f.write(str(unique_id))
+            logging.info("Unique ID file created at %s", uniq_id_path)
+        else:
+            logging.info("Unique ID file already exists for %s", domain)
         
         self.generate_details_html(dir_path, report_summary)
         self.update_details_path_in_db(unique_id, relative_path, self.db_path)
-    
+
+    def store_completed_scan_details(self, scan_record, timeline_data):
+        """
+        Create (or reuse) the details directory for a completed scan (archived scan), 
+        store timeline/pie charts and update the report JSON,
+        copy checkhost export JSON files (from "checkhost_exports") into the same directory,
+        then remove the domain data from checkhost.db if desired.
+        Finally, mark archived=1 in archive.db so it's not processed again.
+        """
+        from checkhost import CheckHostClient  # Import here so there's no circular import
+
+        unique_id = scan_record[0]
+        start_time_str = scan_record[1]
+        domain = scan_record[3]
+        try:
+            start_dt = datetime.strptime(start_time_str, "%Y-%m-%d %H:%M:%S")
+        except Exception as e:
+            logging.error("Error parsing start time for completed scan %s: %s", scan_record, e)
+            return
+        
+        dir_path = os.path.join(self.details_dir, start_dt.strftime("%Y"), start_dt.strftime("%m"), start_dt.strftime("%d"), domain)
+        os.makedirs(dir_path, exist_ok=True)
+        
+        timeline_png_path = os.path.join(dir_path, "timeline.png")
+        pie_chart_path = os.path.join(dir_path, "pie_chart.png")
+        json_path = os.path.join(dir_path, "report.json")
+        uniq_id_path = os.path.join(dir_path, "uniq_id.txt")
+
+        # Generate timeline and pie chart if not present
+        if not os.path.exists(timeline_png_path):
+            self.generate_timeline_png(domain, timeline_data, timeline_png_path)
+        else:
+            logging.info("Timeline PNG already exists for completed scan %s", domain)
+        
+        total = scan_record[4]
+        successful = scan_record[5]
+        failed = scan_record[6]
+        if total > 0:
+            up_percentage = round((successful / total) * 100, 2)
+            down_percentage = round((failed / total) * 100, 2)
+        else:
+            up_percentage = 0
+            down_percentage = 0
+        
+        if not os.path.exists(pie_chart_path):
+            charts_module.generate_pie_chart_plotly(up_percentage, down_percentage, pie_chart_path)
+        else:
+            logging.info("Pie chart already exists for completed scan %s", domain)
+        
+        # Copy checkhost export JSON files from "checkhost_exports"
+        source_exports = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "checkhost_exports")
+        extra_files = []
+        if os.path.exists(source_exports):
+            for file in os.listdir(source_exports):
+                if domain in file:
+                    src = os.path.join(source_exports, file)
+                    dst = os.path.join(dir_path, file)
+                    try:
+                        shutil.copy(src, dst)
+                        extra_files.append(file)
+                        logging.info("Copied JSON export file %s for completed scan %s", file, domain)
+                    except Exception as e:
+                        logging.error("Failed to copy JSON export file %s: %s", file, e)
+        else:
+            logging.warning("Source exports folder %s does not exist.", source_exports)
+
+        # Also call checkhost export if you want to remove the domain from checkhost.db
+        checkhost_client = CheckHostClient(debug=self.debug)
+        checkhost_json_path = os.path.join(dir_path, f"{domain}-checkhost.json")
+        exported_file = checkhost_client.export_and_remove_domain_data(domain, checkhost_json_path)
+        if exported_file:
+            extra_files.append(os.path.basename(exported_file))
+
+        relative_path = dir_path if not dir_path.startswith("/tmp/") else dir_path[len("/tmp/"):]
+        
+        report_summary = {
+            "unique_id": unique_id,
+            "start_time": scan_record[1],
+            "status": scan_record[2],
+            "domain": domain,
+            "total_scans": scan_record[4],
+            "successful_scans": scan_record[5],
+            "failed_scans": scan_record[6],
+            "last_scan_time": scan_record[7],
+            "details": scan_record[8],
+            "duration": scan_record[9],
+            "progress": scan_record[10],
+            "extra_json_files": extra_files
+        }
+        with open(json_path, "w", encoding="utf-8") as f:
+            json.dump(report_summary, f, indent=4)
+        logging.info("Report JSON updated at %s", json_path)
+        
+        if not os.path.exists(uniq_id_path):
+            with open(uniq_id_path, "w", encoding="utf-8") as f:
+                f.write(str(unique_id))
+            logging.info("Unique ID file created at %s", uniq_id_path)
+        else:
+            logging.info("Unique ID file already exists for completed scan %s", domain)
+        
+        if not os.path.exists(os.path.join(dir_path, "details.html")):
+            self.generate_details_html(dir_path, report_summary)
+        else:
+            logging.info("Details HTML already exists for completed scan %s", domain)
+        
+        # Mark this completed scan record as archived so it won't be processed again
+        self.mark_completed_as_archived(unique_id)
+
     def commit_changes(self, commit_message="Update generated reports and details"):
         """
         Commit and push only the details/ directory to the target Git repository.
@@ -325,7 +453,8 @@ class Reports:
     def generate(self):
         """
         Generate an HTML report for active and completed scans,
-        store scan details, generate the main report,
+        store scan details for both active and completed scans,
+        generate the main report using the external template,
         and commit changes (only the details/ directory) back to Git.
         """
         self.check_and_update_schema(self.db_path)
@@ -338,7 +467,7 @@ class Reports:
         timeline_data_all = self.fetch_timeline_data_from_checkhost()
         timeline_data_json = json.dumps(timeline_data_all)
         
-        # Append progress (calculated using duration) to each active scan record
+        # Append progress (calculated using duration) to each scan record
         active_scans_with_progress = [list(row) + [self.calculate_progress(row[1], row[9])] for row in active_scans]
         completed_scans_with_progress = [list(row) + [self.calculate_progress(row[1], row[9])] for row in completed_scans]
         
@@ -346,6 +475,11 @@ class Reports:
         for scan in active_scans_with_progress:
             td = next((item for item in timeline_data_all if item["host"] == scan[3]), None)
             self.store_scan_details(scan, td)
+        
+        # Process details for each completed scan
+        for scan in completed_scans_with_progress:
+            td = next((item for item in timeline_data_all if item["host"] == scan[3]), None)
+            self.store_completed_scan_details(scan, td)
         
         template = self.load_template()
         html_content = template.render(
@@ -357,4 +491,5 @@ class Reports:
         with open(self.output_path, "w", encoding="utf-8") as f:
             f.write(html_content)
         logging.info("Main HTML report generated at %s", self.output_path)
+        
         self.commit_changes()
