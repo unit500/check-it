@@ -4,102 +4,240 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Reports | Check-It Uptime Monitoring</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Base Styles */
+    :root {
+      --hacker-background: #121212;
+      --hacker-card: #222222;
+      --hacker-accent: #00FF41;
+      --hacker-secondary: #2E8B57;
+      --hacker-muted: #555555;
+      --hacker-border: #333333;
+      --hacker-text: #E0E0E0;
+      --hacker-error: #FF0000;
+    }
+    
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+      background-color: var(--hacker-background);
+      color: var(--hacker-text);
+      line-height: 1.5;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 1rem 2rem;
+    }
+    
+    /* Header */
+    header {
+      background-color: var(--hacker-card);
+      border-bottom: 1px solid rgba(0, 255, 65, 0.3);
+      padding: 1.5rem 0;
+    }
+    
+    .header-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    
+    .logo-text {
+      font-size: 1.875rem;
+      font-weight: bold;
+      letter-spacing: -0.025em;
+      color: var(--hacker-accent);
+      text-decoration: none;
+      text-shadow: 0 0 5px rgba(0, 255, 65, 0.7);
+    }
+    
+    nav a {
+      color: var(--hacker-text);
+      text-decoration: none;
+      padding-bottom: 0.25rem;
+      border-bottom: 1px solid transparent;
+      transition: all 0.3s ease;
+    }
+    
+    nav a:hover {
+      color: var(--hacker-accent);
+      border-bottom-color: var(--hacker-accent);
+    }
+    
+    .header-intro {
+      margin-top: 1.5rem;
+      padding-bottom: 1.5rem;
+    }
+    
+    .terminal-text {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--hacker-accent);
+      margin: 0 0 0.5rem 0;
+    }
+    
+    /* Main Content */
+    main {
+      margin: 2rem 0;
+    }
+    
+    h4.table-title {
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: var(--hacker-accent);
+      margin: 1.5rem 0 1rem 0;
+    }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 1.5rem;
+    }
+    
+    th, td {
+      padding: 0.75rem 1rem;
+      border: 1px solid var(--hacker-border);
+      text-align: left;
+    }
+    
+    thead {
+      background-color: var(--hacker-card);
+      color: var(--hacker-accent);
+    }
+    
+    tbody tr:nth-child(even) {
+      background-color: #1b1b1b;
+    }
+    
+    tbody tr:hover {
+      background-color: var(--hacker-card);
+    }
+    
+    a {
+      color: var(--hacker-accent);
+      text-decoration: none;
+    }
+    
+    /* Footer */
+    footer {
+      background-color: var(--hacker-card);
+      border-top: 1px solid var(--hacker-border);
+      text-align: center;
+      padding: 1.5rem 0;
+      margin-top: 2rem;
+    }
+    
+    footer p {
+      font-size: 0.875rem;
+      margin: 0.25rem;
+    }
+  </style>
 </head>
-<body class="min-h-screen flex flex-col bg-gradient-to-b from-white to-gray-50">
-  <header class="w-full bg-gradient-to-r from-blue-900 to-blue-700 text-white shadow-lg">
-    <div class="container mx-auto py-6 px-4 text-center">
-      <h1 class="text-3xl font-bold tracking-tight">Check-It Uptime Monitoring</h1>
-      <p class="text-monitor-100 text-lg mt-2">Real-time server monitoring with detailed status reports.</p>
-    </div>
-  </header>
-  <main class="flex-1">
-    <div class="container mx-auto px-4 py-10">
-      <div class="max-w-6xl mx-auto bg-white shadow-md rounded-lg p-6">
-        <div class="border-b pb-4 mb-6">
-          <h3 class="text-2xl font-semibold">Monitoring Report</h3>
-          <p class="text-gray-500 text-sm">Generated on: {{ now }}</p>
+<body>
+  <div class="container">
+    <header>
+      <div class="header-content">
+        <div class="logo">
+          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="4 17 10 11 4 5"></polyline>
+            <line x1="12" y1="19" x2="20" y2="19"></line>
+          </svg>
+          <a href="#" class="logo-text">Check-It</a>
         </div>
-        <p class="text-lg font-semibold mb-4">
-          Status:
-          {% if active_scans_with_progress %}
-            <span class="text-red-500">
-              {{ active_scans_with_progress | selectattr('2', 'equalto', 'Down') | list | length }} out of {{ active_scans_with_progress | length }} hosts are DOWN
-            </span>
-          {% else %}
-            <span class="text-green-500">No active scans</span>
-          {% endif %}
-        </p>
-        <!-- Active Scans Table -->
-        <div class="overflow-x-auto mb-8">
-          <table class="min-w-full border border-gray-300 text-sm text-left">
-            <thead class="bg-blue-50 text-blue-900">
-              <tr>
-                <th class="border border-gray-300 px-4 py-2">Start Time</th>
-                <th class="border border-gray-300 px-4 py-2">Status</th>
-                <th class="border border-gray-300 px-4 py-2">Host</th>
-                <th class="border border-gray-300 px-4 py-2">Progress</th>
-                <th class="border border-gray-300 px-4 py-2">Total Scans</th>
-                <th class="border border-gray-300 px-4 py-2">Successful Scans</th>
-                <th class="border border-gray-300 px-4 py-2">Failed Scans</th>
-                <th class="border border-gray-300 px-4 py-2">Last Scan Time</th>
-                <th class="border border-gray-300 px-4 py-2">Details</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for row in active_scans_with_progress %}
-              <tr class="border border-gray-300 {% if loop.index is even %} bg-gray-50 {% endif %}">
-                <td class="px-4 py-2 text-gray-500">{{ row[1] }}</td>
-                <td class="px-4 py-2 {% if row[2] == 'Up' %} text-green-600 {% else %} text-red-600 {% endif %}">{{ row[2] }}</td>
-                <td class="px-4 py-2 font-medium">
-                  {% if row[10] %}
-                    <a href="https://unit500.github.io/check-it-files/{{ row[10] }}/details.html" target="_blank">{{ row[3] }}</a>
-                  {% else %}
-                    {{ row[3] }}
-                  {% endif %}
-                </td>
-                <td class="px-4 py-2 text-blue-600 font-semibold">{{ row[11] }}</td>
-                <td class="px-4 py-2">{{ row[4] }}</td>
-                <td class="px-4 py-2">{{ row[5] }}</td>
-                <td class="px-4 py-2">{{ row[6] }}</td>
-                <td class="px-4 py-2 text-gray-500">{{ row[7] }}</td>
-                <td class="px-4 py-2 text-gray-600">{{ row[8] }}</td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-        <!-- Completed Scans Table -->
-        <div class="overflow-x-auto">
-          <table class="min-w-full border border-gray-300 text-sm text-left">
-            <thead class="bg-blue-50 text-blue-900">
-              <tr>
-                <th class="border border-gray-300 px-4 py-2">Start Time</th>
-                <th class="border border-gray-300 px-4 py-2">Status</th>
-                <th class="border border-gray-300 px-4 py-2">Host</th>
-                <th class="border border-gray-300 px-4 py-2">Details</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for row in completed_scans_with_progress %}
-              <tr class="border border-gray-300 {% if loop.index is even %} bg-gray-50 {% endif %}">
-                <td class="px-4 py-2 text-gray-500">{{ row[1] }}</td>
-                <td class="px-4 py-2">{{ row[2] }}</td>
-                <td class="px-4 py-2 font-medium">
-                  {% if row[10] %}
-                    <a href="https://unit500.github.io/check-it-files/{{ row[10] }}/details.html" target="_blank">{{ row[3] }}</a>
-                  {% else %}
-                    {{ row[3] }}
-                  {% endif %}
-                </td>
-                <td class="px-4 py-2 text-blue-600 font-semibold">{{ row[11] }}</td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
+        <nav>
+          <a href="#">Reports</a>
+          <!-- You can add more nav links here -->
+        </nav>
       </div>
-    </div>
-  </main>
+      <div class="header-intro">
+        <h2 class="terminal-text">&gt; Monitoring Report</h2>
+        <p>Generated on: {{ now }}</p>
+      </div>
+    </header>
+    
+    <main>
+      <!-- Active Scans Table -->
+      <h4 class="table-title">Active Scans</h4>
+      <table>
+        <thead>
+          <tr>
+            <th>Start Time</th>
+            <th>Status</th>
+            <th>Host</th>
+            <th>Progress</th>
+            <th>Total Scans</th>
+            <th>Successful Scans</th>
+            <th>Failed Scans</th>
+            <th>Last Scan Time</th>
+            <th>Details</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in active_scans_with_progress %}
+          <tr>
+            <td>{{ row[1] }}</td>
+            <td>{{ row[2] }}</td>
+            <td>
+              {% if row[10] %}
+                <a href="https://unit500.github.io/check-it-files/{{ row[10] }}/details.html" target="_blank">{{ row[3] }}</a>
+              {% else %}
+                {{ row[3] }}
+              {% endif %}
+            </td>
+            <td>{{ row[11] }}</td>
+            <td>{{ row[4] }}</td>
+            <td>{{ row[5] }}</td>
+            <td>{{ row[6] }}</td>
+            <td>{{ row[7] }}</td>
+            <td>{{ row[8] }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      
+      <!-- Completed Scans Table -->
+      <h4 class="table-title">History</h4>
+      <table>
+        <thead>
+          <tr>
+            <th>Start Time</th>
+            <th>Status</th>
+            <th>Host</th>
+            <th>Details</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in completed_scans_with_progress %}
+          <tr>
+            <td>{{ row[1] }}</td>
+            <td>{{ row[2] }}</td>
+            <td>
+              {% if row[10] %}
+                <a href="https://unit500.github.io/check-it-files/{{ row[10] }}/details.html" target="_blank">{{ row[3] }}</a>
+              {% else %}
+                {{ row[3] }}
+              {% endif %}
+            </td>
+            <td>{{ row[11] }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </main>
+    
+    <footer>
+      <p>&gt; Check-It &copy; 2023 - Open Source Uptime Monitoring</p>
+      <p>Built with modern web technologies for reliability and performance</p>
+    </footer>
+  </div>
 </body>
 </html>
