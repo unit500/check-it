@@ -452,61 +452,18 @@
             <option value="http">HTTP</option>
           </select>
 
-          <label>Monitoring Duration</label>
-          <div class="radio-group">
-            <div class="radio-option">
-              <input 
-                type="radio"
-                id="duration1"
-                name="duration"
-                value="1"
-                checked
-              />
-              <label for="duration1">1 Hour</label>
-            </div>
-            <div class="radio-option">
-              <input
-                type="radio"
-                id="duration3"
-                name="duration"
-                value="3"
-              />
-              <label for="duration3">3 Hours</label>
-            </div>
-
-                        <div class="radio-option">
-              <input
-                type="radio"
-                id="duration3"
-                name="duration"
-                value="6"
-              />
-              <label for="duration6">6 Hours</label>
-            </div>
-
-
-                        <div class="radio-option">
-              <input
-                type="radio"
-                id="duration12"
-                name="duration"
-                value="12"
-              />
-              <label for="duration3">12 Hours</label>
-            </div>
-            <div class="radio-option">
-              <input
-                type="radio"
-                id="duration24"
-                name="duration"
-                value="24"
-              />
-              <label for="duration3">24 Hours</label>
-            </div>
-
+          
+<label for="duration">Monitoring Duration</label>
+<select id="duration" name="duration">
+  <option value="1">1 Hour</option>
+  <option value="3">3 Hours</option>
+  <option value="6">6 Hours</option>
+  <option value="12">12 Hours</option>
+  <option value="24">24 Hours</option>
+</select>
 
             
-          </div>
+          
 <br>
           <!-- Google reCAPTCHA widget -->
           <div class="g-recaptcha" data-sitekey="6Lepe_MqAAAAALRL0aRG7TFMmAmFFcwWmjMZWrcb"></div>
@@ -550,7 +507,7 @@
         e.preventDefault();
         const domain = document.getElementById('domain').value;
         const protocol = document.getElementById('protocol').value;
-        const duration = document.querySelector('input[name="duration"]:checked').value;
+        const duration = document.getElementById('duration').value;
         
         // Get the reCAPTCHA response token
         const recaptchaToken = grecaptcha.getResponse();
@@ -585,7 +542,7 @@
         // Optionally reset the form
         form.reset();
         document.getElementById('protocol').value = 'https';
-        document.getElementById('duration1').checked = true;
+        document.getElementById('duration').value = '1';
       });
     });
   </script>
