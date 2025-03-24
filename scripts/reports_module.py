@@ -97,8 +97,7 @@ class Reports:
             cursor.execute("""
                 SELECT id, start_time, status, domain, total_scans, successful_scans, failed_scans, 
                        last_scan_time, details, duration, details_path
-                FROM scans
-                WHERE archived = 0
+                FROM scans                
                 ORDER BY last_scan_time DESC
                 LIMIT 10
             """)
