@@ -18,7 +18,7 @@ CHECKHOST_DB_PATH = "data/checkhost.db"
 
 class Monitoring:
     def __init__(self, db_path=None, archive_path=None, hosts=None, debug=False):
-        """Initialize the monitoring class with DB paths and active hosts."""
+        """Initialize the monitoring class with database paths and load active hosts."""
         self.debug = debug
         script_dir = os.path.dirname(os.path.abspath(__file__))
         self.db_path = db_path if db_path else os.path.join(script_dir, "..", "data", "data.db")
@@ -27,13 +27,14 @@ class Monitoring:
         self.hosts = hosts if hosts is not None else self.load_active_hosts()
 
     def load_active_hosts(self):
-        """Load hosts from data.db where finished = 0 and the scan has not expired."""
+        """Load active hosts from data.db where finished = 0 and the scan has not expired."""
         hosts = []
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
             cursor.execute("SELECT domain, start_time, duration FROM scans WHERE finished = 0")
             rows = cursor.fetchall()
+
             now = datetime.now()
             for row in rows:
                 domain, start_time, duration = row
@@ -72,7 +73,6 @@ class Monitoring:
                 if result_data:
                     up_count, down_count = checkhost_client.process_result(result_data)
                     checkhost_client.update_summary(local_scan_id, up_count, down_count)
-        # Upload checkhost.db after monitoring
         self.upload_to_github(self.checkhost_path, "Update checkhost.db after monitoring")
         return results
 
@@ -88,11 +88,10 @@ class Monitoring:
             logging.error("Failed to update checkhost reference for %s: %s", host, e)
 
     def check_host(self, host, port=80):
-        """Check if a host is reachable using ping and TCP connection."""
+        """Check if a host is reachable via ping and TCP connection."""
         ping_status = "Ping failed"
         try:
-            cmd = (["ping", "-c", "1", "-W", "2", host]
-                   if platform.system().lower() != 'windows'
+            cmd = (["ping", "-c", "1", "-W", "2", host] if platform.system().lower() != 'windows'
                    else ["ping", "-n", "1", "-w", "2000", host])
             result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             if result.returncode == 0:
@@ -113,7 +112,7 @@ class Monitoring:
         return status, details
 
     def update_host_status(self, host, status, details):
-        """Update the scan record with the latest check results."""
+        """Update the scan record in data.db with the latest result for a host."""
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
@@ -149,7 +148,7 @@ class Monitoring:
     def mark_scan_finished(self, host):
         """
         When a scan expires, update finished = 1 in data.db,
-        re-read the updated record, archive it into archive.db,
+        re-read the updated row, archive it into archive.db,
         and then delete it from data.db.
         """
         try:
@@ -163,7 +162,7 @@ class Monitoring:
             # Update the record's finished field to 1
             cursor.execute("UPDATE scans SET finished = 1 WHERE domain = ?", (host,))
             conn.commit()
-            # Re-read the updated row so that finished reflects 1
+            # Re-read the updated row so that finished now equals 1
             cursor.execute(f"SELECT {column_names} FROM scans WHERE domain = ?", (host,))
             row = cursor.fetchone()
             if row:
@@ -175,7 +174,7 @@ class Monitoring:
                 archive_conn.commit()
                 archive_conn.close()
 
-                # Remove the record from data.db
+                # Delete the record from data.db
                 cursor.execute("DELETE FROM scans WHERE domain = ?", (host,))
                 conn.commit()
                 conn.close()
