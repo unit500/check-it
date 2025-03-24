@@ -7,7 +7,7 @@ import os
 import base64
 import requests
 from datetime import datetime, timedelta
-from checkhost import CheckHostClient  # New import for check-host integration
+from checkhost import CheckHostClient  # Integration with check-host.net
 
 # GitHub Configuration
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
@@ -18,7 +18,7 @@ CHECKHOST_DB_PATH = "data/checkhost.db"
 
 class Monitoring:
     def __init__(self, db_path=None, archive_path=None, hosts=None, debug=False):
-        """Initialize the monitoring class, setting up database paths and loading active hosts."""
+        """Initialize the monitoring class with DB paths and active hosts."""
         self.debug = debug
         script_dir = os.path.dirname(os.path.abspath(__file__))
         self.db_path = db_path if db_path else os.path.join(script_dir, "..", "data", "data.db")
@@ -27,20 +27,19 @@ class Monitoring:
         self.hosts = hosts if hosts is not None else self.load_active_hosts()
 
     def load_active_hosts(self):
-        """Load active hosts from data.db that have finished=0 and have not exceeded their duration."""
+        """Load hosts from data.db where finished = 0 and the scan has not expired."""
         hosts = []
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
             cursor.execute("SELECT domain, start_time, duration FROM scans WHERE finished = 0")
             rows = cursor.fetchall()
-
             now = datetime.now()
             for row in rows:
                 domain, start_time, duration = row
                 if duration and start_time:
-                    start_time_dt = datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S")
-                    time_limit = start_time_dt + timedelta(hours=duration)
+                    start_dt = datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S")
+                    time_limit = start_dt + timedelta(hours=duration)
                     if now < time_limit:
                         hosts.append(domain)
                     else:
@@ -73,6 +72,7 @@ class Monitoring:
                 if result_data:
                     up_count, down_count = checkhost_client.process_result(result_data)
                     checkhost_client.update_summary(local_scan_id, up_count, down_count)
+        # Upload checkhost.db after monitoring
         self.upload_to_github(self.checkhost_path, "Update checkhost.db after monitoring")
         return results
 
@@ -88,7 +88,7 @@ class Monitoring:
             logging.error("Failed to update checkhost reference for %s: %s", host, e)
 
     def check_host(self, host, port=80):
-        """Perform a ping and TCP connection check on a host."""
+        """Check if a host is reachable using ping and TCP connection."""
         ping_status = "Ping failed"
         try:
             cmd = (["ping", "-c", "1", "-W", "2", host]
@@ -113,7 +113,7 @@ class Monitoring:
         return status, details
 
     def update_host_status(self, host, status, details):
-        """Update the scan record with the latest result for a host."""
+        """Update the scan record with the latest check results."""
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
@@ -146,45 +146,46 @@ class Monitoring:
         except Exception as e:
             logging.error("Failed to update status for %s: %s", host, e)
 
-def mark_scan_finished(self, host):
-    """
-    Once a scan is considered expired, update finished=1 in data.db,
-    re-read the updated record, archive it into archive.db, and then delete it from data.db.
-    """
-    try:
-        conn = sqlite3.connect(self.db_path, timeout=30)
-        cursor = conn.cursor()
-        cursor.execute("PRAGMA table_info(scans);")
-        columns = [row[1] for row in cursor.fetchall()]
-        column_names = ", ".join(columns)
-        placeholders = ", ".join(["?" for _ in columns])
-        
-        # First, update the record to finished = 1
-        cursor.execute("UPDATE scans SET finished = 1 WHERE domain = ?", (host,))
-        conn.commit()
-        # Re-read the row so that the finished field reflects the update
-        cursor.execute(f"SELECT {column_names} FROM scans WHERE domain = ?", (host,))
-        row = cursor.fetchone()
-        if row:
-            # Archive the record into archive.db
-            archive_conn = sqlite3.connect(self.archive_path, timeout=30)
-            archive_cursor = archive_conn.cursor()
-            archive_cursor.execute(f"CREATE TABLE IF NOT EXISTS scans ({column_names})")
-            archive_cursor.execute(f"INSERT OR REPLACE INTO scans ({column_names}) VALUES ({placeholders})", row)
-            archive_conn.commit()
-            archive_conn.close()
-
-            # Remove the record from data.db
-            cursor.execute("DELETE FROM scans WHERE domain = ?", (host,))
+    def mark_scan_finished(self, host):
+        """
+        When a scan expires, update finished = 1 in data.db,
+        re-read the updated record, archive it into archive.db,
+        and then delete it from data.db.
+        """
+        try:
+            conn = sqlite3.connect(self.db_path, timeout=30)
+            cursor = conn.cursor()
+            cursor.execute("PRAGMA table_info(scans);")
+            columns = [row[1] for row in cursor.fetchall()]
+            column_names = ", ".join(columns)
+            placeholders = ", ".join(["?" for _ in columns])
+            
+            # Update the record's finished field to 1
+            cursor.execute("UPDATE scans SET finished = 1 WHERE domain = ?", (host,))
             conn.commit()
-            conn.close()
+            # Re-read the updated row so that finished reflects 1
+            cursor.execute(f"SELECT {column_names} FROM scans WHERE domain = ?", (host,))
+            row = cursor.fetchone()
+            if row:
+                # Archive the updated record into archive.db
+                archive_conn = sqlite3.connect(self.archive_path, timeout=30)
+                archive_cursor = archive_conn.cursor()
+                archive_cursor.execute(f"CREATE TABLE IF NOT EXISTS scans ({column_names})")
+                archive_cursor.execute(f"INSERT OR REPLACE INTO scans ({column_names}) VALUES ({placeholders})", row)
+                archive_conn.commit()
+                archive_conn.close()
 
-            logging.info(f"✅ Finished scan for {host} marked finished, archived, and removed from active scans.")
-            self.upload_to_github(self.archive_path, "Update archive.db after monitoring")
-        else:
-            logging.warning(f"No scan found for {host} to archive.")
-    except Exception as e:
-        logging.error(f"❌ Failed to move scan to archive for {host}: {e}")
+                # Remove the record from data.db
+                cursor.execute("DELETE FROM scans WHERE domain = ?", (host,))
+                conn.commit()
+                conn.close()
+
+                logging.info(f"✅ Finished scan for {host} marked finished, archived, and removed from active scans.")
+                self.upload_to_github(self.archive_path, "Update archive.db after monitoring")
+            else:
+                logging.warning(f"No scan found for {host} to archive.")
+        except Exception as e:
+            logging.error(f"❌ Failed to move scan to archive for {host}: {e}")
 
     def upload_to_github(self, file_path, commit_message):
         """Upload the specified file to GitHub using the API."""
