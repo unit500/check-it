@@ -13,7 +13,7 @@ class CheckHostClient:
         self.debug = debug
         self.db_path = db_path if db_path else CHECKHOST_DB_PATH
         
-        # Check if the checkhost.db file exists; if not, log that we are creating one.
+        # If checkhost.db does not exist, log that we are creating one.
         if not os.path.exists(self.db_path):
             logging.info("checkhost.db not found. Creating new checkhost database at %s", self.db_path)
         self._init_db()
@@ -22,7 +22,7 @@ class CheckHostClient:
         """Initialize the checkhost.db and create necessary tables if they do not exist."""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        # Create scan_meta with a local_id primary key and separate checkhost_id column.
+        # Create scan_meta table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS scan_meta (
                 local_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -34,7 +34,7 @@ class CheckHostClient:
                 summary_down INTEGER DEFAULT 0
             )
         """)
-        # Create scan_results with a foreign key linking to scan_meta.local_id.
+        # Create scan_results table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS scan_results (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -65,7 +65,6 @@ class CheckHostClient:
                     VALUES (?, ?, ?, ?)
                 """, (host, checkhost_id, now, now))
                 local_scan_id = cursor.lastrowid
-                # Save the initiate call result in scan_results using the local_scan_id.
                 cursor.execute("""
                     INSERT INTO scan_results (local_scan_id, call_type, response, timestamp)
                     VALUES (?, 'initiate', ?, ?)
@@ -82,7 +81,7 @@ class CheckHostClient:
             return None
 
     def get_scan_result(self, local_scan_id):
-        """Fetch scan result using the checkhost_id associated with local_scan_id and store the API response."""
+        """Fetch scan result using the checkhost_id and store the API response."""
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
@@ -121,7 +120,6 @@ class CheckHostClient:
         if not result:
             return up_count, down_count
 
-        # Iterate over each node's response.
         for node, values in result.items():
             if isinstance(values, list):
                 for entry in values:
@@ -156,21 +154,20 @@ class CheckHostClient:
     def export_and_remove_domain_data(self, domain, output_file):
         """
         Export all check-host data for the given domain to a JSON file,
-        then remove those rows from checkhost.db (scan_meta and scan_results).
+        then remove those rows from checkhost.db (both scan_meta and scan_results).
         """
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-
-            # 1. Gather all local_ids for this domain from scan_meta
+            
+            # Gather all local_ids for this domain from scan_meta
             cursor.execute("SELECT local_id, checkhost_id, first_scan, last_scan, summary_up, summary_down FROM scan_meta WHERE domain = ?", (domain,))
             rows_meta = cursor.fetchall()
             if not rows_meta:
                 logging.info("No checkhost data found for domain %s", domain)
                 conn.close()
-                return None  # Nothing to export
+                return None
 
-            # Build a structure for the final JSON
             domain_export = {
                 "domain": domain,
                 "exported_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -185,8 +182,8 @@ class CheckHostClient:
                 last_scan = row[3]
                 summary_up = row[4]
                 summary_down = row[5]
-
-                # 2. For each local_id, gather all rows in scan_results
+                
+                # Gather all scan_results for this local_id
                 cursor.execute("SELECT call_type, response, timestamp FROM scan_results WHERE local_scan_id = ?", (local_scan_id,))
                 rows_results = cursor.fetchall()
                 results_list = []
@@ -201,7 +198,7 @@ class CheckHostClient:
                         "response": parsed_response,
                         "timestamp": ts
                     })
-
+                    
                 domain_export["local_ids"].append({
                     "local_scan_id": local_scan_id,
                     "checkhost_id": checkhost_id,
@@ -212,20 +209,17 @@ class CheckHostClient:
                     "scan_results": results_list
                 })
 
-            # 3. Write domain_export to output_file
             with open(output_file, "w", encoding="utf-8") as f:
                 json.dump(domain_export, f, indent=4)
             logging.info("Exported check-host data for domain %s to %s", domain, output_file)
 
-            # 4. Remove from DB: first remove from scan_results, then from scan_meta
+            # Remove related rows from scan_results and scan_meta
             for local_id in local_ids:
                 cursor.execute("DELETE FROM scan_results WHERE local_scan_id = ?", (local_id,))
                 cursor.execute("DELETE FROM scan_meta WHERE local_id = ?", (local_id,))
             conn.commit()
             conn.close()
-
             return output_file
-
         except Exception as e:
             logging.error("Failed to export/remove checkhost data for domain %s: %s", domain, e)
             return None
