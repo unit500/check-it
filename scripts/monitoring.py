@@ -34,7 +34,6 @@ class Monitoring:
             cursor = conn.cursor()
             cursor.execute("SELECT domain, start_time, duration FROM scans WHERE finished = 0")
             rows = cursor.fetchall()
-
             now = datetime.now()
             for row in rows:
                 domain, start_time, duration = row
@@ -91,7 +90,8 @@ class Monitoring:
         """Check if a host is reachable via ping and TCP connection."""
         ping_status = "Ping failed"
         try:
-            cmd = (["ping", "-c", "1", "-W", "2", host] if platform.system().lower() != 'windows'
+            cmd = (["ping", "-c", "1", "-W", "2", host]
+                   if platform.system().lower() != 'windows'
                    else ["ping", "-n", "1", "-w", "2000", host])
             result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             if result.returncode == 0:
@@ -150,11 +150,13 @@ class Monitoring:
         When a scan expires, update finished = 1 in data.db,
         re-read the updated row, archive it into archive.db,
         and then delete it from data.db.
+        (Since rows in archive.db are considered completed, we do not need to further mark them.)
         """
         try:
             conn = sqlite3.connect(self.db_path, timeout=30)
             cursor = conn.cursor()
-            cursor.execute("PRAGMA table_info(scans);")
+            # Get table columns (assumes the table already has a 'finished' column)
+            cursor.execute("PRAGMA table_info(scans)")
             columns = [row[1] for row in cursor.fetchall()]
             column_names = ", ".join(columns)
             placeholders = ", ".join(["?" for _ in columns])
@@ -166,7 +168,7 @@ class Monitoring:
             cursor.execute(f"SELECT {column_names} FROM scans WHERE domain = ?", (host,))
             row = cursor.fetchone()
             if row:
-                # Archive the updated record into archive.db
+                # Archive the updated record into archive.db (no need to check finished here)
                 archive_conn = sqlite3.connect(self.archive_path, timeout=30)
                 archive_cursor = archive_conn.cursor()
                 archive_cursor.execute(f"CREATE TABLE IF NOT EXISTS scans ({column_names})")
@@ -179,12 +181,12 @@ class Monitoring:
                 conn.commit()
                 conn.close()
 
-                logging.info(f"✅ Finished scan for {host} marked finished, archived, and removed from active scans.")
+                logging.info(f"✅ Finished scan for {host} archived and removed from active scans.")
                 self.upload_to_github(self.archive_path, "Update archive.db after monitoring")
             else:
                 logging.warning(f"No scan found for {host} to archive.")
         except Exception as e:
-            logging.error(f"❌ Failed to move scan to archive for {host}: {e}")
+            logging.error(f"❌ Failed to archive scan for {host}: {e}")
 
     def upload_to_github(self, file_path, commit_message):
         """Upload the specified file to GitHub using the API."""
