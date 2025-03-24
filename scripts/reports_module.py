@@ -14,6 +14,7 @@ import charts_module
 class Reports:
     def __init__(self, db_path=None, archive_path=None, output_path=None, details_dir=None, debug=False):
         """Initialize the report generation class with database paths.
+        
         By default, the details directory is set to '/tmp/details'.
         """
         self.debug = debug
@@ -24,6 +25,17 @@ class Reports:
         self.details_dir = details_dir if details_dir else os.path.join("/tmp", "details")
         logging.info("Reports initialized with db_path=%s, archive_path=%s, output_path=%s, details_dir=%s",
                      self.db_path, self.archive_path, self.output_path, self.details_dir)
+
+    def load_template(self):
+        """Load the external HTML template from the templates directory."""
+        template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "templates", "report_template.html")
+        try:
+            with open(template_path, "r", encoding="utf-8") as f:
+                template_content = f.read()
+            return Template(template_content)
+        except Exception as e:
+            logging.error("Failed to load template from %s: %s", template_path, e)
+            raise
 
     def check_and_update_schema(self, db_file):
         """
@@ -147,118 +159,28 @@ class Reports:
 
     def generate_details_html(self, dir_path, report_summary):
         """Generate an HTML file (details.html) in the given directory with scan details and images."""
-        details_template = """
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-          <meta charset="UTF-8" />
-          <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-          <title>Details for {{ domain }} | Check-It</title>
-          <style>
-            :root {
-              --hacker-background: #121212;
-              --hacker-card: #222222;
-              --hacker-accent: #00FF41;
-              --hacker-secondary: #2E8B57;
-              --hacker-muted: #555555;
-              --hacker-border: #333333;
-              --hacker-text: #E0E0E0;
-              --hacker-error: #FF0000;
-            }
-            body {
-              margin: 0;
-              padding: 0;
-              font-family: "Consolas", "Monaco", "Courier New", monospace;
-              background-color: var(--hacker-background);
-              color: var(--hacker-text);
-              line-height: 1.5;
-              min-height: 100vh;
-              display: flex;
-              flex-direction: column;
-            }
-            .container {
-              width: 100%;
-              max-width: 1200px;
-              margin: 0 auto;
-              padding: 1rem;
-            }
-            header {
-              background-color: var(--hacker-card);
-              border-bottom: 1px solid rgba(0, 255, 65, 0.3);
-              padding: 1rem 0;
-              text-align: center;
-            }
-            header h1 {
-              font-size: 2rem;
-              color: var(--hacker-accent);
-              margin: 0;
-            }
-            table {
-              width: 100%;
-              border-collapse: collapse;
-              margin-top: 1rem;
-            }
-            table, th, td {
-              border: 1px solid var(--hacker-border);
-            }
-            th, td {
-              padding: 0.5rem;
-              text-align: left;
-            }
-            img {
-              max-width: 100%;
-              height: auto;
-              display: block;
-              margin: 1rem 0;
-            }
-          </style>
-        </head>
-        <body>
-          <header>
-            <h1>Details for {{ domain }}</h1>
-          </header>
-          <div class="container">
-            <h2>Scan Summary</h2>
-            <table>
-              <tr><th>Unique ID</th><td>{{ unique_id }}</td></tr>
-              <tr><th>Start Time</th><td>{{ start_time }}</td></tr>
-              <tr><th>Status</th><td>{{ status }}</td></tr>
-              <tr><th>Total Scans</th><td>{{ total_scans }}</td></tr>
-              <tr><th>Successful Scans</th><td>{{ successful_scans }}</td></tr>
-              <tr><th>Failed Scans</th><td>{{ failed_scans }}</td></tr>
-              <tr><th>Last Scan Time</th><td>{{ last_scan_time }}</td></tr>
-              <tr><th>Duration</th><td>{{ duration }}</td></tr>
-              <tr><th>Progress</th><td>{{ progress }}</td></tr>
-              <tr><th>Details</th><td>{{ details }}</td></tr>
-              <tr><th>Details Directory</th><td>{{ details_directory }}</td></tr>
-            </table>
-            <h2>Timeline Image</h2>
-            <img src="timeline.png" alt="Timeline for {{ domain }}">
-            <h2>Up/Down Pie Chart</h2>
-            <img src="pie_chart.png" alt="Up vs Down Pie Chart for {{ domain }}">
-          </div>
-        </body>
-        </html>
-        """
-        template = Template(details_template)
-        html_content = template.render(
-            unique_id=report_summary.get("unique_id"),
-            start_time=report_summary.get("start_time"),
-            status=report_summary.get("status"),
-            domain=report_summary.get("domain"),
-            total_scans=report_summary.get("total_scans"),
-            successful_scans=report_summary.get("successful_scans"),
-            failed_scans=report_summary.get("failed_scans"),
-            last_scan_time=report_summary.get("last_scan_time"),
-            duration=report_summary.get("duration"),
-            progress=report_summary.get("progress"),
-            details=report_summary.get("details"),
-            details_directory=report_summary.get("details_directory")
-        )
-        details_html_path = os.path.join(dir_path, "details.html")
-        with open(details_html_path, "w", encoding="utf-8") as f:
-            f.write(html_content)
-        logging.info("Details HTML generated at %s", details_html_path)
+        try:
+            template = self.load_template()  # Use the external template
+            html_content = template.render(
+                unique_id=report_summary.get("unique_id"),
+                start_time=report_summary.get("start_time"),
+                status=report_summary.get("status"),
+                domain=report_summary.get("domain"),
+                total_scans=report_summary.get("total_scans"),
+                successful_scans=report_summary.get("successful_scans"),
+                failed_scans=report_summary.get("failed_scans"),
+                last_scan_time=report_summary.get("last_scan_time"),
+                duration=report_summary.get("duration"),
+                progress=report_summary.get("progress"),
+                details=report_summary.get("details"),
+                details_directory=report_summary.get("details_directory")
+            )
+            details_html_path = os.path.join(dir_path, "details.html")
+            with open(details_html_path, "w", encoding="utf-8") as f:
+                f.write(html_content)
+            logging.info("Details HTML generated at %s", details_html_path)
+        except Exception as e:
+            logging.error("Failed to generate details HTML: %s", e)
     
     def update_details_path_in_db(self, record_id, relative_path, db_file):
         """Update the scans record with details_path and mark report generation as complete."""
@@ -416,127 +338,16 @@ class Reports:
         timeline_data_all = self.fetch_timeline_data_from_checkhost()
         timeline_data_json = json.dumps(timeline_data_all)
         
-        # Append progress to each active scan record (progress is calculated using duration)
+        # Append progress (calculated using duration) to each active scan record
         active_scans_with_progress = [list(row) + [self.calculate_progress(row[1], row[9])] for row in active_scans]
         completed_scans_with_progress = [list(row) + [self.calculate_progress(row[1], row[9])] for row in completed_scans]
         
-        # For each active scan, process its details and store charts/JSON
+        # Process details for each active scan
         for scan in active_scans_with_progress:
             td = next((item for item in timeline_data_all if item["host"] == scan[3]), None)
             self.store_scan_details(scan, td)
         
-        HTML_TEMPLATE = """
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Reports | Check-It Uptime Monitoring</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="min-h-screen flex flex-col bg-gradient-to-b from-white to-gray-50">
-  <header class="w-full bg-gradient-to-r from-blue-900 to-blue-700 text-white shadow-lg">
-    <div class="container mx-auto py-6 px-4 text-center">
-      <h1 class="text-3xl font-bold tracking-tight">Check-It Uptime Monitoring</h1>
-      <p class="text-monitor-100 text-lg mt-2">Real-time server monitoring with detailed status reports.</p>
-    </div>
-  </header>
-
-  <main class="flex-1">
-    <div class="container mx-auto px-4 py-10">
-      <div class="max-w-6xl mx-auto bg-white shadow-md rounded-lg p-6">
-        <div class="border-b pb-4 mb-6">
-          <h3 class="text-2xl font-semibold">Monitoring Report</h3>
-          <p class="text-gray-500 text-sm">Generated on: {{ now }}</p>
-        </div>
-
-        <p class="text-lg font-semibold mb-4">
-          Status: 
-          {% if active_scans_with_progress %}
-            <span class="text-red-500">
-              {{ active_scans_with_progress | selectattr('2', 'equalto', 'Down') | list | length }} out of {{ active_scans_with_progress | length }} hosts are DOWN
-            </span>
-          {% else %}
-            <span class="text-green-500">No active scans</span>
-          {% endif %}
-        </p>
-
-        <!-- Active Scans Table -->
-        <div class="overflow-x-auto mb-8">
-          <table class="min-w-full border border-gray-300 text-sm text-left">
-            <thead class="bg-blue-50 text-blue-900">
-              <tr>
-                <th class="border border-gray-300 px-4 py-2">Start Time</th>
-                <th class="border border-gray-300 px-4 py-2">Status</th>
-                <th class="border border-gray-300 px-4 py-2">Host</th>
-                <th class="border border-gray-300 px-4 py-2">Progress</th>
-                <th class="border border-gray-300 px-4 py-2">Total Scans</th>
-                <th class="border border-gray-300 px-4 py-2">Successful Scans</th>
-                <th class="border border-gray-300 px-4 py-2">Failed Scans</th>
-                <th class="border border-gray-300 px-4 py-2">Last Scan Time</th>
-                <th class="border border-gray-300 px-4 py-2">Details</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for row in active_scans_with_progress %}
-              <tr class="border border-gray-300 {% if loop.index is even %} bg-gray-50 {% endif %}">
-                <td class="px-4 py-2 text-gray-500">{{ row[1] }}</td>
-                <td class="px-4 py-2 {% if row[2] == 'Up' %} text-green-600 {% else %} text-red-600 {% endif %}">{{ row[2] }}</td>
-                <td class="px-4 py-2 font-medium">
-                  {% if row[10] %}
-                    <a href="https://unit500.github.io/check-it-files/{{ row[10] }}/details.html" target="_blank">{{ row[3] }}</a>
-                  {% else %}
-                    {{ row[3] }}
-                  {% endif %}
-                </td>
-                <td class="px-4 py-2 text-blue-600 font-semibold">{{ row[11] }}</td>
-                <td class="px-4 py-2">{{ row[4] }}</td>
-                <td class="px-4 py-2">{{ row[5] }}</td>
-                <td class="px-4 py-2">{{ row[6] }}</td>
-                <td class="px-4 py-2 text-gray-500">{{ row[7] }}</td>
-                <td class="px-4 py-2 text-gray-600">{{ row[8] }}</td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Completed Scans Table -->
-        <div class="overflow-x-auto">
-          <table class="min-w-full border border-gray-300 text-sm text-left">
-            <thead class="bg-blue-50 text-blue-900">
-              <tr>
-                <th class="border border-gray-300 px-4 py-2">Start Time</th>
-                <th class="border border-gray-300 px-4 py-2">Status</th>
-                <th class="border border-gray-300 px-4 py-2">Host</th>
-                <th class="border border-gray-300 px-4 py-2">Details</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for row in completed_scans_with_progress %}
-              <tr class="border border-gray-300 {% if loop.index is even %} bg-gray-50 {% endif %}">
-                <td class="px-4 py-2 text-gray-500">{{ row[1] }}</td>
-                <td class="px-4 py-2">{{ row[2] }}</td>
-                <td class="px-4 py-2 font-medium">
-                  {% if row[10] %}
-                    <a href="https://unit500.github.io/check-it-files/{{ row[10] }}/details.html" target="_blank">{{ row[3] }}</a>
-                  {% else %}
-                    {{ row[3] }}
-                  {% endif %}
-                </td>
-                <td class="px-4 py-2 text-blue-600 font-semibold">{{ row[11] }}</td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  </main>
-</body>
-</html>
-"""
-        template = Template(HTML_TEMPLATE)
+        template = self.load_template()
         html_content = template.render(
             now=now,
             active_scans_with_progress=active_scans_with_progress,
