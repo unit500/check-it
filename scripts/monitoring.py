@@ -146,44 +146,45 @@ class Monitoring:
         except Exception as e:
             logging.error("Failed to update status for %s: %s", host, e)
 
-    def mark_scan_finished(self, host):
-        """
-        Once a scan has expired, mark it as finished in data.db,
-        copy it to archive.db, and remove it from data.db.
-        """
-        try:
-            conn = sqlite3.connect(self.db_path, timeout=30)
-            cursor = conn.cursor()
-            cursor.execute("PRAGMA table_info(scans);")
-            columns = [row[1] for row in cursor.fetchall()]
-            column_names = ", ".join(columns)
-            placeholders = ", ".join(["?" for _ in columns])
-            cursor.execute(f"SELECT {column_names} FROM scans WHERE domain = ?", (host,))
-            row = cursor.fetchone()
-            if row:
-                # Set finished=1 for the record before archiving
-                cursor.execute("UPDATE scans SET finished = 1 WHERE domain = ?", (host,))
-                conn.commit()
+def mark_scan_finished(self, host):
+    """
+    Once a scan is considered expired, update finished=1 in data.db,
+    re-read the updated record, archive it into archive.db, and then delete it from data.db.
+    """
+    try:
+        conn = sqlite3.connect(self.db_path, timeout=30)
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(scans);")
+        columns = [row[1] for row in cursor.fetchall()]
+        column_names = ", ".join(columns)
+        placeholders = ", ".join(["?" for _ in columns])
+        
+        # First, update the record to finished = 1
+        cursor.execute("UPDATE scans SET finished = 1 WHERE domain = ?", (host,))
+        conn.commit()
+        # Re-read the row so that the finished field reflects the update
+        cursor.execute(f"SELECT {column_names} FROM scans WHERE domain = ?", (host,))
+        row = cursor.fetchone()
+        if row:
+            # Archive the record into archive.db
+            archive_conn = sqlite3.connect(self.archive_path, timeout=30)
+            archive_cursor = archive_conn.cursor()
+            archive_cursor.execute(f"CREATE TABLE IF NOT EXISTS scans ({column_names})")
+            archive_cursor.execute(f"INSERT OR REPLACE INTO scans ({column_names}) VALUES ({placeholders})", row)
+            archive_conn.commit()
+            archive_conn.close()
 
-                # Archive the record
-                archive_conn = sqlite3.connect(self.archive_path, timeout=30)
-                archive_cursor = archive_conn.cursor()
-                archive_cursor.execute(f"CREATE TABLE IF NOT EXISTS scans ({column_names})")
-                archive_cursor.execute(f"INSERT OR REPLACE INTO scans ({column_names}) VALUES ({placeholders})", row)
-                archive_conn.commit()
-                archive_conn.close()
+            # Remove the record from data.db
+            cursor.execute("DELETE FROM scans WHERE domain = ?", (host,))
+            conn.commit()
+            conn.close()
 
-                # Remove the record from data.db
-                cursor.execute("DELETE FROM scans WHERE domain = ?", (host,))
-                conn.commit()
-                conn.close()
-
-                logging.info(f"✅ Finished scan for {host} marked finished, archived, and removed from active scans.")
-                self.upload_to_github(self.archive_path, "Update archive.db after monitoring")
-            else:
-                logging.warning(f"No scan found for {host} to archive.")
-        except Exception as e:
-            logging.error(f"❌ Failed to move scan to archive for {host}: {e}")
+            logging.info(f"✅ Finished scan for {host} marked finished, archived, and removed from active scans.")
+            self.upload_to_github(self.archive_path, "Update archive.db after monitoring")
+        else:
+            logging.warning(f"No scan found for {host} to archive.")
+    except Exception as e:
+        logging.error(f"❌ Failed to move scan to archive for {host}: {e}")
 
     def upload_to_github(self, file_path, commit_message):
         """Upload the specified file to GitHub using the API."""
