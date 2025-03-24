@@ -49,10 +49,7 @@ class CheckHostClient:
         conn.close()
 
     def initiate_scan(self, host):
-        """Initiate a scan via check-host.net API and store meta data.
-        
-        Returns the local_scan_id (the local linking id) for this scan.
-        """
+        """Initiate a scan via check-host.net API and store meta data."""
         url = f"https://check-host.net/check-http?host={host}"
         headers = {"Accept": "application/json"}
         try:
@@ -63,7 +60,6 @@ class CheckHostClient:
             if checkhost_id:
                 conn = sqlite3.connect(self.db_path)
                 cursor = conn.cursor()
-                # Insert a new record into scan_meta and get the generated local_id.
                 cursor.execute("""
                     INSERT INTO scan_meta (domain, checkhost_id, first_scan, last_scan)
                     VALUES (?, ?, ?, ?)
@@ -88,7 +84,6 @@ class CheckHostClient:
     def get_scan_result(self, local_scan_id):
         """Fetch scan result using the checkhost_id associated with local_scan_id and store the API response."""
         try:
-            # Retrieve the checkhost_id from scan_meta for the given local_scan_id.
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
             cursor.execute("SELECT checkhost_id FROM scan_meta WHERE local_id = ?", (local_scan_id,))
@@ -107,7 +102,6 @@ class CheckHostClient:
             now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-            # Insert the result into scan_results using the local_scan_id.
             cursor.execute("""
                 INSERT INTO scan_results (local_scan_id, call_type, response, timestamp)
                 VALUES (?, 'result', ?, ?)
@@ -121,11 +115,7 @@ class CheckHostClient:
             return None
 
     def process_result(self, result):
-        """Process the JSON result to count how many nodes are up versus down.
-        
-        Returns:
-            (up_count, down_count)
-        """
+        """Process the JSON result to count how many nodes are up versus down."""
         up_count = 0
         down_count = 0
         if not result:
@@ -151,13 +141,91 @@ class CheckHostClient:
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
+            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             cursor.execute("""
                 UPDATE scan_meta
-                SET summary_up = ?, summary_down = ?
+                SET summary_up = ?, summary_down = ?, last_scan = ?
                 WHERE local_id = ?
-            """, (up_count, down_count, local_scan_id))
+            """, (up_count, down_count, now, local_scan_id))
             conn.commit()
             conn.close()
             logging.info(f"CheckHost: Updated summary for local_scan_id {local_scan_id}: Up={up_count}, Down={down_count}")
         except Exception as e:
             logging.error(f"CheckHost: Error updating summary for local_scan_id {local_scan_id}: {e}")
+
+    def export_and_remove_domain_data(self, domain, output_file):
+        """
+        Export all check-host data for the given domain to a JSON file,
+        then remove those rows from checkhost.db (scan_meta and scan_results).
+        """
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            # 1. Gather all local_ids for this domain from scan_meta
+            cursor.execute("SELECT local_id, checkhost_id, first_scan, last_scan, summary_up, summary_down FROM scan_meta WHERE domain = ?", (domain,))
+            rows_meta = cursor.fetchall()
+            if not rows_meta:
+                logging.info("No checkhost data found for domain %s", domain)
+                conn.close()
+                return None  # Nothing to export
+
+            # Build a structure for the final JSON
+            domain_export = {
+                "domain": domain,
+                "exported_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "local_ids": []
+            }
+
+            local_ids = [row[0] for row in rows_meta]
+            for row in rows_meta:
+                local_scan_id = row[0]
+                checkhost_id = row[1]
+                first_scan = row[2]
+                last_scan = row[3]
+                summary_up = row[4]
+                summary_down = row[5]
+
+                # 2. For each local_id, gather all rows in scan_results
+                cursor.execute("SELECT call_type, response, timestamp FROM scan_results WHERE local_scan_id = ?", (local_scan_id,))
+                rows_results = cursor.fetchall()
+                results_list = []
+                for r in rows_results:
+                    call_type, response_json, ts = r
+                    try:
+                        parsed_response = json.loads(response_json)
+                    except:
+                        parsed_response = response_json
+                    results_list.append({
+                        "call_type": call_type,
+                        "response": parsed_response,
+                        "timestamp": ts
+                    })
+
+                domain_export["local_ids"].append({
+                    "local_scan_id": local_scan_id,
+                    "checkhost_id": checkhost_id,
+                    "first_scan": first_scan,
+                    "last_scan": last_scan,
+                    "summary_up": summary_up,
+                    "summary_down": summary_down,
+                    "scan_results": results_list
+                })
+
+            # 3. Write domain_export to output_file
+            with open(output_file, "w", encoding="utf-8") as f:
+                json.dump(domain_export, f, indent=4)
+            logging.info("Exported check-host data for domain %s to %s", domain, output_file)
+
+            # 4. Remove from DB: first remove from scan_results, then from scan_meta
+            for local_id in local_ids:
+                cursor.execute("DELETE FROM scan_results WHERE local_scan_id = ?", (local_id,))
+                cursor.execute("DELETE FROM scan_meta WHERE local_id = ?", (local_id,))
+            conn.commit()
+            conn.close()
+
+            return output_file
+
+        except Exception as e:
+            logging.error("Failed to export/remove checkhost data for domain %s: %s", domain, e)
+            return None
