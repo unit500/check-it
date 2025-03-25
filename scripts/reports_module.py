@@ -417,7 +417,10 @@ class Reports:
             if not os.path.exists(os.path.join(self.details_dir, ".git")):
                 logging.info("Initializing a new git repository in %s", self.details_dir)
                 subprocess.run(["git", "init"], check=True)
-            
+                # Configure Git identity
+                subprocess.run(["git", "config", "user.name", "github-actions"], check=True)
+                subprocess.run(["git", "config", "user.email", "github-actions@github.com"], check=True)
+    
             result = subprocess.run(["git", "remote"], capture_output=True, text=True, check=True)
             remotes = result.stdout.split()
             logging.info("Existing remotes in details repo: %s", remotes)
