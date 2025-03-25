@@ -10,6 +10,13 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    # 1) Set environment variables in the job scope so your script sees them.
+    #    Each variable references a secret you defined in your repo's settings.
+    env:
+      GITHUB_OWNER: ${{ secrets.OWNER }}
+      GITHUB_TOKEN: ${{ secrets.TOKEN }}
+      GITHUB_REPO2: ${{ secrets.REPO2 }}
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -22,6 +29,10 @@ jobs:
       - name: Install Dependencies
         run: |
           pip install requests pandas jinja2 plotly kaleido
+
+      # 2) Create the checkhost_exports folder if your script expects it.
+      - name: Create checkhost_exports folder
+        run: mkdir checkhost_exports
 
       - name: Run Monitoring Script
         working-directory: scripts
