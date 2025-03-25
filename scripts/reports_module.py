@@ -27,6 +27,34 @@ class Reports:
         logging.info("Reports initialized with db_path=%s, archive_path=%s, output_path=%s, details_dir=%s",
                      self.db_path, self.archive_path, self.output_path, self.details_dir)
 
+    def fetch_scans_to_regenerate(self, days=7):
+        """
+        Fetch archived scans from the last `days` days,
+        ignoring the 'archived' field. We'll re-generate them.
+        """
+        results = []
+        try:
+            conn = sqlite3.connect(self.archive_path)
+            cursor = conn.cursor()
+            # We'll assume last_scan_time is a DATETIME text like '2025-03-24 09:15:00'
+            cutoff = datetime.now() - timedelta(days=days)
+            cutoff_str = cutoff.strftime("%Y-%m-%d %H:%M:%S")
+            
+            cursor.execute(f"""
+                SELECT id, start_time, status, domain, total_scans, successful_scans, failed_scans,
+                       last_scan_time, details, duration, details_path
+                FROM scans
+                WHERE last_scan_time >= ?
+                ORDER BY last_scan_time DESC
+            """, (cutoff_str,))
+            
+            results = cursor.fetchall()
+            conn.close()
+            logging.info("Fetched %d archived scans to regenerate (last %d days).", len(results), days)
+        except Exception as e:
+            logging.error("Failed to fetch scans to regenerate: %s", e)
+        return results
+        
     def load_template(self):
         """Load the external HTML template from the templates directory."""
         template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "templates", "report_template.html")
