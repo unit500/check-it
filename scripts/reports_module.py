@@ -97,7 +97,8 @@ class Reports:
             cursor.execute("""
                 SELECT id, start_time, status, domain, total_scans, successful_scans, failed_scans, 
                        last_scan_time, details, duration, details_path
-                FROM scans                
+                FROM scans
+                WHERE archived = 0
                 ORDER BY last_scan_time DESC
                 LIMIT 10
             """)
@@ -112,7 +113,7 @@ class Reports:
         try:
             start_dt = datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S")
             now = datetime.now()
-            elapsed = (now - start_dt).total_seconds() / 3600  # in hours
+            elapsed = (now - start_dt).total_seconds() / 3600
             progress = min(round((elapsed / duration) * 100, 2), 100) if duration > 0 else 100
             return f"{progress}%"
         except Exception:
@@ -263,7 +264,7 @@ class Reports:
             "details": scan_record[8],
             "duration": scan_record[9],
             "progress": scan_record[10],
-            "extra_json_files": []  # No extra JSON files for active scans
+            "extra_json_files": []
         }
         with open(json_path, "w", encoding="utf-8") as f:
             json.dump(report_summary, f, indent=4)
@@ -328,7 +329,7 @@ class Reports:
         
         relative_path = dir_path if not dir_path.startswith("/tmp/") else dir_path[len("/tmp/"):]
         
-        # Copy any checkhost export JSON files from "checkhost_exports" into this directory
+        # Copy any JSON export files from "checkhost_exports" into this directory.
         source_exports = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "checkhost_exports")
         extra_files = []
         if os.path.exists(source_exports):
@@ -390,16 +391,17 @@ class Reports:
         Commit and push only the details/ directory to the target Git repository.
         """
         logging.info("Attempting to commit changes with commit_message='%s'", commit_message)
-        logging.info("Checking environment variables for GITHUB_OWNER, GITHUB_TOKEN, GITHUB_REPO2.")
-        env_owner = os.environ.get("GITHUB_OWNER")
-        env_token = os.environ.get("GITHUB_TOKEN")
-        env_repo2 = os.environ.get("GITHUB_REPO2")
-        if not env_owner:
-            logging.warning("Environment variable GITHUB_OWNER is missing.")
-        if not env_token:
-            logging.warning("Environment variable GITHUB_TOKEN is missing.")
-        if not env_repo2:
-            logging.warning("Environment variable GITHUB_REPO2 is missing.")
+        logging.info("Checking environment variables for OWNER, TOKEN, REPO2.")
+        # Updated to use the secret names from your GitHub Actions
+        owner = os.environ.get("OWNER")
+        token = os.environ.get("TOKEN")
+        repo2 = os.environ.get("REPO2")
+        if not owner:
+            logging.warning("Environment variable OWNER is missing.")
+        if not token:
+            logging.warning("Environment variable TOKEN is missing.")
+        if not repo2:
+            logging.warning("Environment variable REPO2 is missing.")
         
         if not os.path.exists(self.details_dir):
             logging.warning("Details directory %s does not exist; creating it now.", self.details_dir)
@@ -420,11 +422,11 @@ class Reports:
             remotes = result.stdout.split()
             logging.info("Existing remotes in details repo: %s", remotes)
             
-            if not env_owner or not env_token:
-                logging.error("Missing GITHUB_OWNER or GITHUB_TOKEN environment variables. Aborting commit.")
+            if not owner or not token:
+                logging.error("Missing OWNER or TOKEN environment variables. Aborting commit.")
                 return
             
-            repo_url = f"https://{env_token}@github.com/{env_owner}/{env_repo2}.git"
+            repo_url = f"https://{token}@github.com/{owner}/{repo2}.git"
             if "origin" in remotes:
                 logging.info("Setting remote origin URL to %s", repo_url)
                 subprocess.run(["git", "remote", "set-url", "origin", repo_url], check=True)
