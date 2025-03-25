@@ -160,7 +160,7 @@ class CheckHostClient:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
             
-            # Gather all local_ids for this domain from scan_meta
+            # Gather all local_ids for this domain
             cursor.execute("SELECT local_id, checkhost_id, first_scan, last_scan, summary_up, summary_down FROM scan_meta WHERE domain = ?", (domain,))
             rows_meta = cursor.fetchall()
             if not rows_meta:
@@ -183,7 +183,7 @@ class CheckHostClient:
                 summary_up = row[4]
                 summary_down = row[5]
                 
-                # Gather all scan_results for this local_id
+                # Gather results for this local_id
                 cursor.execute("SELECT call_type, response, timestamp FROM scan_results WHERE local_scan_id = ?", (local_scan_id,))
                 rows_results = cursor.fetchall()
                 results_list = []
@@ -213,7 +213,7 @@ class CheckHostClient:
                 json.dump(domain_export, f, indent=4)
             logging.info("Exported check-host data for domain %s to %s", domain, output_file)
 
-            # Remove related rows from scan_results and scan_meta
+            # Remove rows from scan_results and scan_meta
             for local_id in local_ids:
                 cursor.execute("DELETE FROM scan_results WHERE local_scan_id = ?", (local_id,))
                 cursor.execute("DELETE FROM scan_meta WHERE local_id = ?", (local_id,))
