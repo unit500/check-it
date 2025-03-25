@@ -16,6 +16,9 @@ jobs:
       GITHUB_OWNER: ${{ secrets.OWNER }}
       GITHUB_TOKEN: ${{ secrets.TOKEN }}
       GITHUB_REPO2: ${{ secrets.REPO2 }}
+      OWNER: ${{ secrets.OWNER }}
+      TOKEN: ${{ secrets.TOKEN }}
+      REPO2: ${{ secrets.REPO2 }}
 
     steps:
       - name: Checkout Repository
