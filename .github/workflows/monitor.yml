@@ -31,7 +31,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          pip install requests pandas jinja2 plotly kaleido
+          pip install requests pandas jinja2 plotly kaleido matplotlib
 
       # 2) Create the checkhost_exports folder if your script expects it.
       - name: Create checkhost_exports folder
