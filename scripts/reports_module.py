@@ -1,3 +1,4 @@
+# reports_module.py (version 1.3)
 import sqlite3
 import logging
 import os
@@ -36,10 +37,8 @@ class Reports:
         try:
             conn = sqlite3.connect(self.archive_path)
             cursor = conn.cursor()
-            # We'll assume last_scan_time is a DATETIME text like '2025-03-24 09:15:00'
             cutoff = datetime.now() - timedelta(days=days)
             cutoff_str = cutoff.strftime("%Y-%m-%d %H:%M:%S")
-            
             cursor.execute(f"""
                 SELECT id, start_time, status, domain, total_scans, successful_scans, failed_scans,
                        last_scan_time, details, duration, details_path
@@ -47,7 +46,6 @@ class Reports:
                 WHERE last_scan_time >= ?
                 ORDER BY last_scan_time DESC
             """, (cutoff_str,))
-            
             results = cursor.fetchall()
             conn.close()
             logging.info("Fetched %d archived scans to regenerate (last %d days).", len(results), days)
@@ -55,9 +53,9 @@ class Reports:
             logging.error("Failed to fetch scans to regenerate: %s", e)
         return results
         
-    def load_template(self):
-        """Load the external HTML template from the templates directory."""
-        template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "templates", "report_template.html")
+    def load_template(self, template_name="report_template.html"):
+        """Load an external HTML template from the templates directory."""
+        template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "templates", template_name)
         try:
             with open(template_path, "r", encoding="utf-8") as f:
                 template_content = f.read()
@@ -116,7 +114,7 @@ class Reports:
 
     def fetch_latest_completed_scans(self):
         """
-        Fetch the latest 10 completed scans from archive.db that haven't been archived yet (archived=0).
+        Fetch the latest 10 completed scans from archive.db.
         """
         results = []
         try:
@@ -192,9 +190,12 @@ class Reports:
         logging.info("Timeline PNG generated at %s", output_path)
 
     def generate_details_html(self, dir_path, report_summary):
-        """Generate an HTML file (details.html) in the given directory with scan details and images."""
+        """
+        Generate an HTML file (details.html) in the given directory with scan summary details.
+        This now uses a dedicated template (details_template.html) for scan summaries.
+        """
         try:
-            template = self.load_template()
+            template = self.load_template("details_template.html")
             html_content = template.render(
                 unique_id=report_summary.get("unique_id"),
                 start_time=report_summary.get("start_time"),
@@ -206,8 +207,6 @@ class Reports:
                 last_scan_time=report_summary.get("last_scan_time"),
                 duration=report_summary.get("duration"),
                 progress=report_summary.get("progress"),
-                details=report_summary.get("details"),
-                details_directory=report_summary.get("details_directory"),
                 extra_json_files=report_summary.get("extra_json_files")
             )
             details_html_path = os.path.join(dir_path, "details.html")
@@ -277,7 +276,8 @@ class Reports:
         
         charts_module.generate_pie_chart_plotly(up_percentage, down_percentage, pie_chart_path)
         
-        relative_path = dir_path if not dir_path.startswith("/tmp/") else dir_path[len("/tmp/"):]
+        # Compute relative path from the details_dir
+        relative_path = os.path.relpath(dir_path, self.details_dir)
         
         report_summary = {
             "unique_id": unique_id,
@@ -354,9 +354,8 @@ class Reports:
         else:
             logging.info("Pie chart already exists for completed scan %s", domain)
         
-        relative_path = dir_path if not dir_path.startswith("/tmp/") else dir_path[len("/tmp/"):]
+        relative_path = os.path.relpath(dir_path, self.details_dir)
         
-        # Copy any JSON export files from "checkhost_exports" into this directory.
         source_exports = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "checkhost_exports")
         extra_files = []
         if os.path.exists(source_exports):
@@ -373,7 +372,6 @@ class Reports:
         else:
             logging.warning("Source exports folder %s does not exist.", source_exports)
 
-        # Export and remove checkhost data for this domain
         checkhost_client = CheckHostClient(debug=self.debug)
         checkhost_json_path = os.path.join(dir_path, f"{domain}-checkhost.json")
         exported_file = checkhost_client.export_and_remove_domain_data(domain, checkhost_json_path)
@@ -410,7 +408,6 @@ class Reports:
         else:
             logging.info("Details HTML already exists for completed scan %s", domain)
         
-        # Mark this completed scan as archived so it won't be processed again.
         self.mark_completed_as_archived(unique_id)
 
     def commit_changes(self, commit_message="Update generated reports and details"):
@@ -419,7 +416,6 @@ class Reports:
         """
         logging.info("Attempting to commit changes with commit_message='%s'", commit_message)
         logging.info("Checking environment variables for OWNER, TOKEN, REPO2.")
-        # Updated to use the secret names from your GitHub Actions
         owner = os.environ.get("OWNER")
         token = os.environ.get("TOKEN")
         repo2 = os.environ.get("REPO2")
@@ -444,7 +440,6 @@ class Reports:
             if not os.path.exists(os.path.join(self.details_dir, ".git")):
                 logging.info("Initializing a new git repository in %s", self.details_dir)
                 subprocess.run(["git", "init"], check=True)
-                # Configure Git identity
                 subprocess.run(["git", "config", "user.name", "github-actions"], check=True)
                 subprocess.run(["git", "config", "user.email", "github-actions@github.com"], check=True)
     
@@ -507,7 +502,7 @@ class Reports:
             td = next((item for item in timeline_data_all if item["host"] == scan[3]), None)
             self.store_completed_scan_details(scan, td)
         
-        template = self.load_template()
+        template = self.load_template()  # loads report_template.html by default
         html_content = template.render(
             now=now,
             active_scans_with_progress=active_scans_with_progress,
