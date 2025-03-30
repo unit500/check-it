@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Scan Summary - {{ domain }}</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #121212;
+      color: #E0E0E0;
+      margin: 20px;
+    }
+    h1 {
+      color: #00FF41;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 1rem;
+    }
+    th, td {
+      border: 1px solid #333;
+      padding: 8px;
+      text-align: left;
+    }
+    th {
+      background-color: #222;
+    }
+  </style>
+</head>
+<body>
+  <h1>Scan Summary for {{ domain }}</h1>
+  <p><strong>Scan ID:</strong> {{ unique_id }}</p>
+  <p><strong>Start Time:</strong> {{ start_time }}</p>
+  <p><strong>Status:</strong> {{ status }}</p>
+  <table>
+    <tr>
+      <th>Total Scans</th>
+      <th>Successful</th>
+      <th>Failed</th>
+    </tr>
+    <tr>
+      <td>{{ total_scans }}</td>
+      <td>{{ successful_scans }}</td>
+      <td>{{ failed_scans }}</td>
+    </tr>
+  </table>
+  <p><strong>Last Scan Time:</strong> {{ last_scan_time }}</p>
+  <p><strong>Duration:</strong> {{ duration }}</p>
+  <p><strong>Progress:</strong> {{ progress }}</p>
+  {% if extra_json_files %}
+    <h2>Additional Files</h2>
+    <ul>
+      {% for file in extra_json_files %}
+        <li>{{ file }}</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+</body>
+</html>
