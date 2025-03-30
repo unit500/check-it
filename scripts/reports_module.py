@@ -1,4 +1,4 @@
-# reports_module.py (version 1.4)
+# reports_module.py (version 1.5)
 import sqlite3
 import logging
 import os
@@ -10,11 +10,12 @@ from jinja2 import Template
 import plotly.express as px
 import pandas as pd
 
-# --- New Imports for DDOS Map Generation ---
+# --- New Imports for DDOS Map Animation ---
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import matplotlib.patches as mpatches
+import matplotlib.animation as animation
 import re
 
 # Import our Plotly pie chart function from charts_module.py
@@ -56,14 +57,13 @@ fallback_coords = {
 
 def generate_ddos_map(check_details, attacked_country, output_filename):
     """
-    Generate a world map image using Cartopy.
+    Generate a static world map image using Cartopy:
       - Red circles for each unique country derived from check_details keys.
       - A black circle for the attacked country.
-    Saves the map image to output_filename.
+    Saves the image to output_filename.
     """
     results = check_details.get("check_results", {})
     red_coords = set()
-    # Extract coordinates from the keys (assuming keys begin with country code letters)
     for node in results.keys():
         match = re.match(r"([a-zA-Z]+)", node)
         if match:
@@ -74,7 +74,6 @@ def generate_ddos_map(check_details, attacked_country, output_filename):
     black_coords = None
     if attacked_country:
         try:
-            # Optionally, use pycountry for fuzzy matching to get the alpha-2 code.
             import pycountry
             matches = pycountry.countries.search_fuzzy(attacked_country)
             if matches:
@@ -101,6 +100,74 @@ def generate_ddos_map(check_details, attacked_country, output_filename):
     plt.savefig(output_filename, bbox_inches='tight', dpi=150)
     plt.close()
 
+def generate_ddos_map_animated(check_details, attacked_country, output_filename, frames=20, interval=200):
+    """
+    Generate an animated DDOS map as a GIF.
+    This function creates an animation by rotating the world map (by changing the central_longitude)
+    over a number of frames and saves the animation to output_filename.
+    """
+    results = check_details.get("check_results", {})
+    red_coords = set()
+    for node in results.keys():
+        match = re.match(r"([a-zA-Z]+)", node)
+        if match:
+            code = match.group(1).lower()[:2]
+            coords = fallback_coords.get(code)
+            if coords:
+                red_coords.add(coords)
+    black_coords = None
+    if attacked_country:
+        try:
+            import pycountry
+            matches = pycountry.countries.search_fuzzy(attacked_country)
+            if matches:
+                country_code = matches[0].alpha_2.lower()
+                black_coords = fallback_coords.get(country_code)
+        except Exception as e:
+            logging.error(f"Error getting coordinates for attacked country '{attacked_country}': {e}")
+    
+    fig = plt.figure(figsize=(12, 6))
+    # We'll update the projection's central_longitude for each frame.
+    ax = plt.axes(projection=ccrs.PlateCarree(central_longitude=0))
+    ax.set_global()
+    ax.add_feature(cfeature.LAND, facecolor='lightgray')
+    ax.add_feature(cfeature.OCEAN, facecolor='aliceblue')
+    ax.add_feature(cfeature.BORDERS, linestyle='-', edgecolor='gray')
+    ax.coastlines()
+    # Plot the markers (they remain constant)
+    if red_coords:
+        lats, lons = zip(*red_coords)
+    if black_coords:
+        black_lon, black_lat = black_coords[1], black_coords[0]
+    
+    title = ax.set_title("DDOS Availability Map", fontsize=16)
+
+    def update(frame):
+        # Update the central_longitude based on frame number.
+        angle = -180 + (360.0/frames)*frame
+        # Clear the axis and re-create projection with new central_longitude
+        ax.clear()
+        proj = ccrs.PlateCarree(central_longitude=angle)
+        ax.set_global()
+        ax.set_projection(proj)
+        ax.add_feature(cfeature.LAND, facecolor='lightgray')
+        ax.add_feature(cfeature.OCEAN, facecolor='aliceblue')
+        ax.add_feature(cfeature.BORDERS, linestyle='-', edgecolor='gray')
+        ax.coastlines()
+        if red_coords:
+            ax.scatter(lons, lats, color='red', s=100, transform=ccrs.PlateCarree(), zorder=5)
+        if black_coords:
+            ax.scatter([black_lon], [black_lat], color='black', s=150, transform=ccrs.PlateCarree(), zorder=6)
+        ax.set_title(f"DDOS Availability Map\nCentral Longitude: {angle:.0f}°", fontsize=16)
+        red_patch = mpatches.Patch(color='red', label='Inaccessible locations')
+        black_patch = mpatches.Patch(color='black', label='Targeted server')
+        ax.legend(handles=[black_patch, red_patch], loc='lower left', fontsize='small')
+
+    anim = animation.FuncAnimation(fig, update, frames=frames, interval=interval)
+    # Save as animated GIF using PillowWriter.
+    anim.save(output_filename, writer='pillow', dpi=150)
+    plt.close()
+
 class Reports:
     def __init__(self, db_path=None, archive_path=None, output_path=None, details_dir=None, debug=False):
         """Initialize the report generation class with database paths.
@@ -117,10 +184,6 @@ class Reports:
                      self.db_path, self.archive_path, self.output_path, self.details_dir)
 
     def fetch_scans_to_regenerate(self, days=7):
-        """
-        Fetch archived scans from the last `days` days,
-        ignoring the 'archived' field. We'll re-generate them.
-        """
         results = []
         try:
             conn = sqlite3.connect(self.archive_path)
@@ -142,7 +205,6 @@ class Reports:
         return results
         
     def load_template(self, template_name="report_template.html"):
-        """Load an external HTML template from the templates directory."""
         template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "templates", template_name)
         try:
             with open(template_path, "r", encoding="utf-8") as f:
@@ -153,12 +215,6 @@ class Reports:
             raise
 
     def check_and_update_schema(self, db_file):
-        """
-        Ensure that the 'scans' table in the given database has the required columns:
-        - details_path (TEXT)
-        - generated_report (TEXT), default 'no'
-        - archived (INTEGER), default 0
-        """
         try:
             conn = sqlite3.connect(db_file)
             cursor = conn.cursor()
@@ -179,10 +235,6 @@ class Reports:
             logging.error("Failed to update schema for %s: %s", db_file, e)
 
     def fetch_latest_results(self):
-        """
-        Fetch latest active scan results from data.db.
-        Active scans are defined as those with finished = 0.
-        """
         results = []
         try:
             conn = sqlite3.connect(self.db_path)
@@ -201,9 +253,6 @@ class Reports:
         return results
 
     def fetch_latest_completed_scans(self):
-        """
-        Fetch the latest 10 completed scans from archive.db.
-        """
         results = []
         try:
             conn = sqlite3.connect(self.archive_path)
@@ -222,7 +271,6 @@ class Reports:
         return results
 
     def calculate_progress(self, start_time, duration):
-        """Calculate progress as a percentage based on start time and duration."""
         try:
             start_dt = datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S")
             now = datetime.now()
@@ -233,9 +281,6 @@ class Reports:
             return "N/A"
 
     def fetch_timeline_data_from_checkhost(self):
-        """
-        Fetch timeline data from checkhost.db's scan_meta table.
-        """
         timeline_data = []
         try:
             checkhost_db = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "checkhost.db")
@@ -261,9 +306,6 @@ class Reports:
         return timeline_data
 
     def generate_timeline_png(self, domain, timeline_data, output_path):
-        """
-        Generate a timeline chart as a PNG image using Plotly Express.
-        """
         if timeline_data is None:
             df = pd.DataFrame([], columns=["host", "status", "start", "end"])
         else:
@@ -278,10 +320,6 @@ class Reports:
         logging.info("Timeline PNG generated at %s", output_path)
 
     def generate_details_html(self, dir_path, report_summary):
-        """
-        Generate an HTML file (details.html) in the given directory with scan summary details.
-        This now uses a dedicated template (details_template.html) for scan summaries.
-        """
         try:
             template = self.load_template("details_template.html")
             html_content = template.render(
@@ -305,7 +343,6 @@ class Reports:
             logging.error("Failed to generate details HTML: %s", e)
     
     def update_details_path_in_db(self, record_id, relative_path, db_file):
-        """Update the scans record with details_path and mark generated_report='yes'."""
         try:
             conn = sqlite3.connect(db_file)
             cursor = conn.cursor()
@@ -317,7 +354,6 @@ class Reports:
             logging.error("Failed to update details_path for record %s in %s: %s", record_id, db_file, e)
     
     def mark_completed_as_archived(self, record_id):
-        """Mark a completed scan record in the archive DB as archived (set archived = 1)."""
         try:
             conn = sqlite3.connect(self.archive_path)
             cursor = conn.cursor()
@@ -329,10 +365,6 @@ class Reports:
             logging.error("Failed to mark record %s as archived: %s", record_id, e)
 
     def store_scan_details(self, scan_record, timeline_data):
-        """
-        Create the details directory for an active scan, store timeline/pie charts, 
-        save report JSON, and update the DB with the relative path.
-        """
         unique_id = scan_record[0]
         start_time_str = scan_record[1]
         domain = scan_record[3]
@@ -366,7 +398,6 @@ class Reports:
         
         relative_path = os.path.relpath(dir_path, self.details_dir)
         
-        # Include extra fields if available (for DDOS map integration)
         report_summary = {
             "unique_id": unique_id,
             "start_time": scan_record[1],
@@ -379,9 +410,7 @@ class Reports:
             "details": scan_record[8],
             "duration": scan_record[9],
             "progress": scan_record[10],
-            "extra_json_files": [],
-            "check_details": scan_record[8] if isinstance(scan_record[8], dict) else None,
-            "attacked_country": scan_record[8].get("attacked_country") if isinstance(scan_record[8], dict) and "attacked_country" in scan_record[8] else ""
+            "extra_json_files": []
         }
         with open(json_path, "w", encoding="utf-8") as f:
             json.dump(report_summary, f, indent=4)
@@ -398,14 +427,6 @@ class Reports:
         self.update_details_path_in_db(unique_id, relative_path, self.db_path)
 
     def store_completed_scan_details(self, scan_record, timeline_data):
-        """
-        Reuse the existing details directory for a completed scan (archived scan), 
-        store timeline/pie charts and update the report JSON,
-        copy checkhost export JSON files (from "checkhost_exports") into the same directory,
-        call export_and_remove_domain_data() to remove data from checkhost.db,
-        and then mark archived=1 in archive.db.
-        Additionally, if check_details are present, generate a DDOS map (ddos_map.png).
-        """
         from checkhost import CheckHostClient
 
         unique_id = scan_record[0]
@@ -447,7 +468,6 @@ class Reports:
         
         relative_path = os.path.relpath(dir_path, self.details_dir)
         
-        # Copy JSON export files from checkhost_exports if they match the domain
         source_exports = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "checkhost_exports")
         extra_files = []
         if os.path.exists(source_exports):
@@ -470,7 +490,6 @@ class Reports:
         if exported_file:
             extra_files.append(os.path.basename(exported_file))
         
-        # Build report_summary and include check_details if available
         report_summary = {
             "unique_id": unique_id,
             "start_time": scan_record[1],
@@ -498,13 +517,14 @@ class Reports:
         else:
             logging.info("Unique ID file already exists for completed scan %s", domain)
         
-        # --- DDOS Map Generation Integration ---
-        ddos_map_path = os.path.join(dir_path, "ddos_map.png")
+        # --- DDOS Animated Map Generation Integration ---
+        ddos_map_gif_path = os.path.join(dir_path, "ddos_map.gif")
         if report_summary.get("check_details"):
-            generate_ddos_map(report_summary["check_details"], report_summary.get("attacked_country", ""), ddos_map_path)
-            logging.info("DDOS map generated at %s", ddos_map_path)
+            # Create an animated GIF instead of a static image.
+            generate_ddos_map_animated(report_summary["check_details"], report_summary.get("attacked_country", ""), ddos_map_gif_path)
+            logging.info("Animated DDOS map generated at %s", ddos_map_gif_path)
         else:
-            logging.info("No check_details available; skipping DDOS map generation for %s", domain)
+            logging.info("No check_details available; skipping animated DDOS map generation for %s", domain)
         
         if not os.path.exists(os.path.join(dir_path, "details.html")):
             self.generate_details_html(dir_path, report_summary)
@@ -514,9 +534,6 @@ class Reports:
         self.mark_completed_as_archived(unique_id)
 
     def commit_changes(self, commit_message="Update generated reports and details"):
-        """
-        Commit and push only the details/ directory to the target Git repository.
-        """
         logging.info("Attempting to commit changes with commit_message='%s'", commit_message)
         logging.info("Checking environment variables for OWNER, TOKEN, REPO2.")
         owner = os.environ.get("OWNER")
@@ -578,12 +595,6 @@ class Reports:
             logging.error("Failed to commit changes: %s", e)
 
     def generate(self):
-        """
-        Generate an HTML report for active and completed scans,
-        store scan details for both active and completed scans,
-        generate the main report using the external template,
-        and commit changes (only the details/ directory) back to Git.
-        """
         self.check_and_update_schema(self.db_path)
         self.check_and_update_schema(self.archive_path)
         
