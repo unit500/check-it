@@ -36,7 +36,7 @@
       padding: 1rem;
     }
 
-    /* Header (same as index header) */
+    /* Header */
     header {
       background-color: var(--hacker-card);
       border-bottom: 1px solid rgba(0, 255, 65, 0.3);
@@ -114,7 +114,7 @@
       transition: width 0.5s ease;
     }
 
-    /* Images Section */
+    /* Charts Section */
     .charts {
       display: flex;
       flex-wrap: wrap;
@@ -125,6 +125,19 @@
       max-width: 100%;
       border: 1px solid var(--hacker-border);
     }
+
+    /* Footer */
+    footer {
+      background-color: var(--hacker-card);
+      border-top: 1px solid var(--hacker-border);
+      padding: 2rem 0;
+      text-align: center;
+    }
+    footer p {
+      font-size: 0.875rem;
+      color: var(--hacker-text);
+      margin: 0.5rem 0;
+    }
   </style>
 </head>
 <body>
@@ -132,7 +145,6 @@
     <div class="container">
       <div class="header-top">
         <div class="logo-area">
-          <!-- Optionally include a logo SVG similar to the index -->
           <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="none" stroke="currentColor"
                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
@@ -157,11 +169,11 @@
         <h2>Scan Summary</h2>
         <p><strong>Unique ID:</strong> {{ unique_id }}</p>
         <p><strong>Start Time:</strong> {{ start_time }}</p>
+        <p><strong>End Time:</strong> {{ last_scan_time }}</p>
         <p><strong>Status:</strong> {{ status }}</p>
         <p><strong>Duration:</strong> {{ duration }} Hours</p>
         <p><strong>Progress:</strong> {{ progress }}</p>
         <div class="progress-container">
-          <!-- Assuming progress is a string like "75%" -->
           <div class="progress-bar" style="width: {{ progress }};">{{ progress }}</div>
         </div>
       </section>
@@ -198,7 +210,7 @@
 
   <footer>
     <div class="container">
-      <p>Check-It &copy; 2025 - Open Source Uptime Monitoring</p>
+      <p>Check-It &copy; 2025 - Open Source DDoS Monitoring</p>
     </div>
   </footer>
 </body>
