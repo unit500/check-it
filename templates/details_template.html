@@ -26,6 +26,13 @@
     th {
       background-color: #222;
     }
+    .charts {
+      margin-top: 20px;
+    }
+    .charts img {
+      max-width: 100%;
+      margin-bottom: 20px;
+    }
   </style>
 </head>
 <body>
@@ -56,5 +63,14 @@
       {% endfor %}
     </ul>
   {% endif %}
+  <div class="charts">
+    <h2>Charts</h2>
+    <div>
+      <img src="timeline.png" alt="Timeline Chart">
+    </div>
+    <div>
+      <img src="pie_chart.png" alt="Pie Chart">
+    </div>
+  </div>
 </body>
 </html>
