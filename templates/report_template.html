@@ -222,7 +222,7 @@
             <td>{{ row[2] }}</td>
             <td>
               {% if row[10] %}
-                <a href="https://unit500.github.io/check-it-files/{{ row[10] }}/details.html" target="_blank">{{ row[3] }}</a>
+                <a href="https://unit500.github.io/check-it-files/{{ row[10]|replace('details/', '', 1) }}/details.html" target="_blank">{{ row[3] }}</a>                
               {% else %}
                 {{ row[3] }}
               {% endif %}
