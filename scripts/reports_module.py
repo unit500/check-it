@@ -1,4 +1,4 @@
-# reports_module.py (version 1.3)
+# reports_module.py (version 1.4)
 import sqlite3
 import logging
 import os
@@ -10,8 +10,72 @@ from jinja2 import Template
 import plotly.express as px
 import pandas as pd
 
+# --- New Imports for DDOS Map Generation ---
+import matplotlib.pyplot as plt
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
+import matplotlib.patches as mpatches
+import re
+
 # Import our Plotly pie chart function from charts_module.py
 import charts_module
+
+# --- Fallback coordinates for country codes (ISO alpha-2 -> (lat, lon)) ---
+fallback_coords = {
+    "br": (-14.2350, -51.9253),
+    "us": (37.0902, -95.7129),
+    "de": (51.1657, 10.4515),
+    "fr": (46.2276, 2.2137),
+    "uk": (55.3781, -3.4360),
+    # Add additional mappings as needed…
+}
+
+def generate_ddos_map(check_details, attacked_country, output_filename):
+    """
+    Generate a world map image using Cartopy.
+      - Red circles for each unique country derived from check_details keys.
+      - A black circle for the attacked country.
+    Saves the map image to output_filename.
+    """
+    results = check_details.get("check_results", {})
+    red_coords = set()
+    # Extract coordinates from the keys (assuming keys begin with country code letters)
+    for node in results.keys():
+        match = re.match(r"([a-zA-Z]+)", node)
+        if match:
+            code = match.group(1).lower()[:2]
+            coords = fallback_coords.get(code)
+            if coords:
+                red_coords.add(coords)
+    black_coords = None
+    if attacked_country:
+        try:
+            # Optionally, use pycountry for fuzzy matching to get the alpha-2 code.
+            import pycountry
+            matches = pycountry.countries.search_fuzzy(attacked_country)
+            if matches:
+                country_code = matches[0].alpha_2.lower()
+                black_coords = fallback_coords.get(country_code)
+        except Exception as e:
+            logging.error(f"Error getting coordinates for attacked country '{attacked_country}': {e}")
+    fig = plt.figure(figsize=(12, 6))
+    ax = plt.axes(projection=ccrs.PlateCarree())
+    ax.set_global()
+    ax.add_feature(cfeature.LAND, facecolor='lightgray')
+    ax.add_feature(cfeature.OCEAN, facecolor='aliceblue')
+    ax.add_feature(cfeature.BORDERS, linestyle='-', edgecolor='gray')
+    ax.coastlines()
+    if red_coords:
+        lats, lons = zip(*red_coords)
+        ax.scatter(lons, lats, color='red', s=100, transform=ccrs.PlateCarree(), zorder=5)
+    if black_coords:
+        ax.scatter([black_coords[1]], [black_coords[0]], color='black', s=150, transform=ccrs.PlateCarree(), zorder=6)
+    ax.set_title("DDOS Availability Map", fontsize=16)
+    red_patch = mpatches.Patch(color='red', label='Inaccessible locations')
+    black_patch = mpatches.Patch(color='black', label='Targeted server')
+    ax.legend(handles=[black_patch, red_patch], loc='lower left', fontsize='small')
+    plt.savefig(output_filename, bbox_inches='tight', dpi=150)
+    plt.close()
 
 class Reports:
     def __init__(self, db_path=None, archive_path=None, output_path=None, details_dir=None, debug=False):
@@ -276,9 +340,9 @@ class Reports:
         
         charts_module.generate_pie_chart_plotly(up_percentage, down_percentage, pie_chart_path)
         
-        # Compute relative path from the details_dir
         relative_path = os.path.relpath(dir_path, self.details_dir)
         
+        # Include extra fields if available (for DDOS map integration)
         report_summary = {
             "unique_id": unique_id,
             "start_time": scan_record[1],
@@ -291,7 +355,9 @@ class Reports:
             "details": scan_record[8],
             "duration": scan_record[9],
             "progress": scan_record[10],
-            "extra_json_files": []
+            "extra_json_files": [],
+            "check_details": scan_record[8] if isinstance(scan_record[8], dict) else None,
+            "attacked_country": scan_record[8].get("attacked_country") if isinstance(scan_record[8], dict) and "attacked_country" in scan_record[8] else ""
         }
         with open(json_path, "w", encoding="utf-8") as f:
             json.dump(report_summary, f, indent=4)
@@ -314,6 +380,7 @@ class Reports:
         copy checkhost export JSON files (from "checkhost_exports") into the same directory,
         call export_and_remove_domain_data() to remove data from checkhost.db,
         and then mark archived=1 in archive.db.
+        Additionally, if check_details are present, generate a DDOS map (ddos_map.png).
         """
         from checkhost import CheckHostClient
 
@@ -356,6 +423,7 @@ class Reports:
         
         relative_path = os.path.relpath(dir_path, self.details_dir)
         
+        # Copy JSON export files from checkhost_exports if they match the domain
         source_exports = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "checkhost_exports")
         extra_files = []
         if os.path.exists(source_exports):
@@ -378,6 +446,7 @@ class Reports:
         if exported_file:
             extra_files.append(os.path.basename(exported_file))
         
+        # Build report_summary and include check_details if available
         report_summary = {
             "unique_id": unique_id,
             "start_time": scan_record[1],
@@ -390,7 +459,9 @@ class Reports:
             "details": scan_record[8],
             "duration": scan_record[9],
             "progress": scan_record[10],
-            "extra_json_files": extra_files
+            "extra_json_files": extra_files,
+            "check_details": scan_record[8] if isinstance(scan_record[8], dict) else None,
+            "attacked_country": scan_record[8].get("attacked_country") if isinstance(scan_record[8], dict) and "attacked_country" in scan_record[8] else ""
         }
         with open(json_path, "w", encoding="utf-8") as f:
             json.dump(report_summary, f, indent=4)
@@ -402,6 +473,14 @@ class Reports:
             logging.info("Unique ID file created at %s", uniq_id_path)
         else:
             logging.info("Unique ID file already exists for completed scan %s", domain)
+        
+        # --- DDOS Map Generation Integration ---
+        ddos_map_path = os.path.join(dir_path, "ddos_map.png")
+        if report_summary.get("check_details"):
+            generate_ddos_map(report_summary["check_details"], report_summary.get("attacked_country", ""), ddos_map_path)
+            logging.info("DDOS map generated at %s", ddos_map_path)
+        else:
+            logging.info("No check_details available; skipping DDOS map generation for %s", domain)
         
         if not os.path.exists(os.path.join(dir_path, "details.html")):
             self.generate_details_html(dir_path, report_summary)
