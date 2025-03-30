@@ -1,4 +1,4 @@
-# reports_module.py (version 1.5)
+# reports_module.py (version 1.6)
 import sqlite3
 import logging
 import os
@@ -10,7 +10,7 @@ from jinja2 import Template
 import plotly.express as px
 import pandas as pd
 
-# --- New Imports for DDOS Map Animation ---
+# --- New Imports for DDOS Map Animation and Timeline Generation from JSON ---
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
@@ -23,7 +23,7 @@ import charts_module
 
 # --- Fallback coordinates for country codes (ISO alpha-2 -> (lat, lon)) ---
 fallback_coords = {
-    "bg": (42.7339, 25.4858),
+"bg": (42.7339, 25.4858),
     "br": (-14.2350, -51.9253),
     "ch": (46.8182, 8.2275),
     "cz": (49.8175, 15.4730),
@@ -103,8 +103,7 @@ def generate_ddos_map(check_details, attacked_country, output_filename):
 def generate_ddos_map_animated(check_details, attacked_country, output_filename, frames=20, interval=200):
     """
     Generate an animated DDOS map as a GIF.
-    This function creates an animation by rotating the world map (by changing the central_longitude)
-    over a number of frames and saves the animation to output_filename.
+    Rotates the world map by updating the central_longitude.
     """
     results = check_details.get("check_results", {})
     red_coords = set()
@@ -125,27 +124,17 @@ def generate_ddos_map_animated(check_details, attacked_country, output_filename,
                 black_coords = fallback_coords.get(country_code)
         except Exception as e:
             logging.error(f"Error getting coordinates for attacked country '{attacked_country}': {e}")
-    
     fig = plt.figure(figsize=(12, 6))
-    # We'll update the projection's central_longitude for each frame.
     ax = plt.axes(projection=ccrs.PlateCarree(central_longitude=0))
     ax.set_global()
     ax.add_feature(cfeature.LAND, facecolor='lightgray')
     ax.add_feature(cfeature.OCEAN, facecolor='aliceblue')
     ax.add_feature(cfeature.BORDERS, linestyle='-', edgecolor='gray')
     ax.coastlines()
-    # Plot the markers (they remain constant)
-    if red_coords:
-        lats, lons = zip(*red_coords)
-    if black_coords:
-        black_lon, black_lat = black_coords[1], black_coords[0]
-    
     title = ax.set_title("DDOS Availability Map", fontsize=16)
 
     def update(frame):
-        # Update the central_longitude based on frame number.
         angle = -180 + (360.0/frames)*frame
-        # Clear the axis and re-create projection with new central_longitude
         ax.clear()
         proj = ccrs.PlateCarree(central_longitude=angle)
         ax.set_global()
@@ -155,23 +144,70 @@ def generate_ddos_map_animated(check_details, attacked_country, output_filename,
         ax.add_feature(cfeature.BORDERS, linestyle='-', edgecolor='gray')
         ax.coastlines()
         if red_coords:
-            ax.scatter(lons, lats, color='red', s=100, transform=ccrs.PlateCarree(), zorder=5)
+            ax.scatter(*zip(*red_coords), color='red', s=100, transform=ccrs.PlateCarree(), zorder=5)
         if black_coords:
-            ax.scatter([black_lon], [black_lat], color='black', s=150, transform=ccrs.PlateCarree(), zorder=6)
+            ax.scatter([black_coords[1]], [black_coords[0]], color='black', s=150, transform=ccrs.PlateCarree(), zorder=6)
         ax.set_title(f"DDOS Availability Map\nCentral Longitude: {angle:.0f}°", fontsize=16)
         red_patch = mpatches.Patch(color='red', label='Inaccessible locations')
         black_patch = mpatches.Patch(color='black', label='Targeted server')
         ax.legend(handles=[black_patch, red_patch], loc='lower left', fontsize='small')
 
     anim = animation.FuncAnimation(fig, update, frames=frames, interval=interval)
-    # Save as animated GIF using PillowWriter.
     anim.save(output_filename, writer='pillow', dpi=150)
     plt.close()
+
+def generate_timeline_png_from_json(json_file, output_path):
+    """
+    Generate a timeline chart PNG from a check-host JSON export.
+    Reads the JSON file, extracts each object's first_scan and last_scan,
+    and uses that to build a timeline DataFrame for plotting.
+    """
+    try:
+        with open(json_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception as e:
+        logging.error(f"Error loading JSON file {json_file}: {e}")
+        return
+
+    timeline_data = []
+    domain = data.get("domain", "Unknown")
+    local_ids = data.get("local_ids", [])
+    for item in local_ids:
+        first_scan = item.get("first_scan")
+        last_scan = item.get("last_scan")
+        if first_scan and last_scan:
+            try:
+                start_dt = datetime.strptime(first_scan, "%Y-%m-%d %H:%M:%S")
+                end_dt = datetime.strptime(last_scan, "%Y-%m-%d %H:%M:%S")
+            except Exception as e:
+                logging.error(f"Error parsing dates in JSON for domain {domain}: {e}")
+                continue
+            summary_up = item.get("summary_up", 0)
+            summary_down = item.get("summary_down", 0)
+            status = "Up" if summary_up >= summary_down else "Down"
+            timeline_data.append({
+                "host": domain,
+                "status": status,
+                "start": int(start_dt.timestamp() * 1000),
+                "end": int(end_dt.timestamp() * 1000)
+            })
+    
+    import pandas as pd
+    if not timeline_data:
+        df = pd.DataFrame([], columns=["host", "status", "start", "end"])
+    else:
+        df = pd.DataFrame(timeline_data)
+        df['start'] = pd.to_datetime(df['start'], unit='ms')
+        df['end'] = pd.to_datetime(df['end'], unit='ms')
+    
+    fig = px.timeline(df, x_start="start", x_end="end", y="host", color="status")
+    fig.update_yaxes(autorange="reversed")
+    fig.write_image(output_path)
+    logging.info(f"Timeline PNG generated from JSON at {output_path}")
 
 class Reports:
     def __init__(self, db_path=None, archive_path=None, output_path=None, details_dir=None, debug=False):
         """Initialize the report generation class with database paths.
-        
         By default, the details directory is set to '/tmp/details'.
         """
         self.debug = debug
@@ -203,7 +239,7 @@ class Reports:
         except Exception as e:
             logging.error("Failed to fetch scans to regenerate: %s", e)
         return results
-        
+
     def load_template(self, template_name="report_template.html"):
         template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "templates", template_name)
         try:
@@ -382,6 +418,7 @@ class Reports:
         json_path = os.path.join(dir_path, "report.json")
         uniq_id_path = os.path.join(dir_path, "uniq_id.txt")
         
+        # For active scans we use the DB timeline data.
         self.generate_timeline_png(domain, timeline_data, timeline_png_path)
         
         total = scan_record[4]
@@ -441,15 +478,22 @@ class Reports:
         dir_path = os.path.join(self.details_dir, start_dt.strftime("%Y"), start_dt.strftime("%m"), start_dt.strftime("%d"), domain)
         os.makedirs(dir_path, exist_ok=True)
         
+        # Instead of using DB timeline data, we now want to use the exported JSON.
         timeline_png_path = os.path.join(dir_path, "timeline.png")
         pie_chart_path = os.path.join(dir_path, "pie_chart.png")
         json_path = os.path.join(dir_path, "report.json")
         uniq_id_path = os.path.join(dir_path, "uniq_id.txt")
 
-        if not os.path.exists(timeline_png_path):
-            self.generate_timeline_png(domain, timeline_data, timeline_png_path)
+        # For completed scans, generate timeline PNG from the exported JSON.
+        checkhost_json_path = os.path.join(dir_path, f"{domain}-checkhost.json")
+        exported_file = None
+        checkhost_client = CheckHostClient(debug=self.debug)
+        exported_file = checkhost_client.export_and_remove_domain_data(domain, checkhost_json_path)
+        if exported_file:
+            generate_timeline_png_from_json(exported_file, timeline_png_path)
         else:
-            logging.info("Timeline PNG already exists for completed scan %s", domain)
+            # Fallback: use the DB timeline data
+            self.generate_timeline_png(domain, timeline_data, timeline_png_path)
         
         total = scan_record[4]
         successful = scan_record[5]
@@ -484,8 +528,7 @@ class Reports:
         else:
             logging.warning("Source exports folder %s does not exist.", source_exports)
 
-        checkhost_client = CheckHostClient(debug=self.debug)
-        checkhost_json_path = os.path.join(dir_path, f"{domain}-checkhost.json")
+        # Attempt to export check-host data; if found, append to extra_files.
         exported_file = checkhost_client.export_and_remove_domain_data(domain, checkhost_json_path)
         if exported_file:
             extra_files.append(os.path.basename(exported_file))
@@ -520,8 +563,9 @@ class Reports:
         # --- DDOS Animated Map Generation Integration ---
         ddos_map_gif_path = os.path.join(dir_path, "ddos_map.gif")
         if report_summary.get("check_details"):
-            # Create an animated GIF instead of a static image.
-            generate_ddos_map_animated(report_summary["check_details"], report_summary.get("attacked_country", ""), ddos_map_gif_path)
+            generate_ddos_map_animated(report_summary["check_details"],
+                                       report_summary.get("attacked_country", ""),
+                                       ddos_map_gif_path)
             logging.info("Animated DDOS map generated at %s", ddos_map_gif_path)
         else:
             logging.info("No check_details available; skipping animated DDOS map generation for %s", domain)
