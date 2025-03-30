@@ -32,7 +32,8 @@ def main():
     report_gen = Reports(debug=args.debug)
     report_file = report_gen.generate()
 
-    index_page = Index(os.path.join(script_dir, "..", "index.html"), debug=args.debug)
+    # Fix Index initialization - ensure correct argument order
+    index_page = Index(os.path.join(script_dir, "..", "index.html"), args.debug)
     index_page.update(report_file, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
     logging.info("Monitoring sequence completed.")
