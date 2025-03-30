@@ -117,13 +117,21 @@
     /* Charts Section */
     .charts {
       display: flex;
-      flex-wrap: wrap;
+      align-items: flex-start; /* or center */
       gap: 1rem;
       margin-top: 2rem;
+      flex-wrap: nowrap; /* keep them in a single row, might overflow if too wide */
     }
-    .charts img {
-      max-width: 100%;
+    .chart-item {
+      flex: 1 1 0;
+      min-width: 0; /* helps with flex overflow */
+    }
+    .chart-item img {
+      width: 100%;
       border: 1px solid var(--hacker-border);
+      border-radius: 4px;
+      max-height: 300px; /* optional to keep them uniform */
+      object-fit: contain; /* so it scales properly within max-height */
     }
 
     /* Footer */
@@ -145,6 +153,7 @@
     <div class="container">
       <div class="header-top">
         <div class="logo-area">
+          <!-- Optional Icon -->
           <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="none" stroke="currentColor"
                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
@@ -167,37 +176,62 @@
     <div class="container">
       <section class="summary">
         <h2>Scan Summary</h2>
-        <p><strong>Unique ID:</strong> {{ unique_id }}</p>
-        <p><strong>Start Time:</strong> {{ start_time }}</p>
-        <p><strong>End Time:</strong> {{ last_scan_time }}</p>
-        <p><strong>Status:</strong> {{ status }}</p>
-        <p><strong>Duration:</strong> {{ duration }} Hours</p>
-        <p><strong>Progress:</strong> {{ progress }}</p>
-        <div class="progress-container">
-          <div class="progress-bar" style="width: {{ progress }};">{{ progress }}</div>
-        </div>
-        <p><strong>GitHub Repository:</strong> <a href="{{ github_repo_url }}" target="_blank">{{ github_repo_url }}</a></p>
+        
+        <!-- If any field is empty, you can optionally skip it or show "N/A" -->
+        {% if unique_id %}
+          <p><strong>Unique ID:</strong> {{ unique_id }}</p>
+        {% endif %}
+        
+        {% if start_time %}
+          <p><strong>Start Time:</strong> {{ start_time }}</p>
+        {% endif %}
+        
+        {% if last_scan_time %}
+          <p><strong>End Time:</strong> {{ last_scan_time }}</p>
+        {% endif %}
+        
+        {% if status %}
+          <p><strong>Status:</strong> {{ status }}</p>
+        {% endif %}
+        
+        {% if duration %}
+          <p><strong>Duration:</strong> {{ duration }} Hours</p>
+        {% endif %}
+        
+        {% if progress %}
+          <p><strong>Progress:</strong> {{ progress }}</p>
+          <div class="progress-container">
+            <div class="progress-bar" style="width: {{ progress }};">{{ progress }}</div>
+          </div>
+        {% endif %}
+        
+        {% if github_repo_url %}
+          <p><strong>GitHub Repository:</strong> 
+            <a href="{{ github_repo_url }}" target="_blank">{{ github_repo_url }}</a>
+          </p>
+        {% endif %}
       </section>
 
+      <!-- Charts in a single row -->
       <section class="charts">
-        <div>
+        <div class="chart-item">
           <h3>Timeline</h3>
           <img src="timeline.png" alt="Timeline Chart">
         </div>
-        <div>
+        <div class="chart-item">
           <h3>Pie Chart</h3>
           <img src="pie_chart.png" alt="Pie Chart">
         </div>
         {% if ddos_map_gif %}
-        <div>
-          <h3>Animated DDOS Map</h3>
-          <img src="ddos_map.gif" alt="Animated DDOS Map">
-        </div>
+          <div class="chart-item">
+            <h3>Animated DDOS Map</h3>
+            <img src="ddos_map.gif" alt="Animated DDOS Map">
+          </div>
         {% endif %}
       </section>
       
       {% if extra_json_files %}
-      <section class="extra-files">
+      <section class="extra-files" style="margin-top:2rem;">
         <h3>Additional Files</h3>
         <ul>
           {% for file in extra_json_files %}
